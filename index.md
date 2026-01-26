@@ -1,0 +1,58 @@
+# gghoneycomb
+
+gghoneycomb provides geoms and stats for creating honeycomb-style
+hexagonal grid visualizations as an extension to ggplot2.
+
+## Installation
+
+You can install the development version of gghoneycomb from
+[GitHub](https://github.com/) with:
+
+``` r
+# install.packages("pak")
+pak::pak("dleopold/gghoneycomb")
+```
+
+## Example
+
+*Examples coming soon.*
+
+## Development Workflow (renv)
+
+This package uses [renv](https://rstudio.github.io/renv/) for local
+dependency management. The `renv.lock` file is **not committed** to
+version control; CI workflows install dependencies directly from
+`DESCRIPTION`.
+
+### Setup
+
+``` r
+# Activate renv and install dependencies
+renv::restore()
+```
+
+### Adding Dependencies
+
+``` r
+# Add a runtime dependency
+usethis::use_package("newpkg")
+
+# Add a development dependency
+usethis::use_package("devpkg", type = "Suggests")
+
+# Update the lockfile (includes dev deps)
+renv::snapshot(dev = TRUE)
+```
+
+### Keeping in Sync
+
+``` r
+# Check status
+renv::status()
+
+# Update lockfile after DESCRIPTION changes
+renv::snapshot(dev = TRUE)
+
+# Restore from lockfile
+renv::restore()
+```
