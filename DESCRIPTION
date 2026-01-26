@@ -1,11 +1,25 @@
 Package: gghoneycomb
-Title: What the Package Does (One Line, Title Case)
+Title: Honeycomb Plots for ggplot2
 Version: 0.0.0.9000
 Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"))
-Description: What the package does (one paragraph).
-License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
-    license
+    person("Devin R", "Leopold", email = "devin.leopold@gmail.com", role = c("aut", "cre"))
+Description: Provides geoms and stats for creating honeycomb-style hexagonal
+    grid visualizations as an extension to ggplot2. Enables the display of
+    categorical or continuous data in a compact, visually appealing hexagonal
+    layout.
+License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
+Depends: R (>= 4.2)
+Imports: 
+    ggplot2 (>= 3.5.0),
+    rlang
+URL: https://github.com/dleopold/gghoneycomb, https://dleopold.github.io/gghoneycomb/
+BugReports: https://github.com/dleopold/gghoneycomb/issues
+Suggests: 
+    knitr,
+    rmarkdown,
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+VignetteBuilder: knitr
