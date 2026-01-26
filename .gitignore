@@ -1,1 +1,10 @@
 .Rproj.user
+inst/doc
+docs
+
+# renv - local lockfile (CI installs from DESCRIPTION)
+renv.lock
+renv/library/
+renv/local/
+renv/cellar/
+renv/staging/
