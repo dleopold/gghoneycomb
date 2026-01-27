@@ -193,15 +193,20 @@ test_that("allocate_regions respects global_center parameter", {
 })
 
 test_that("allocate_regions errors when contiguity impossible", {
-  # Small grid with split that leaves disconnected cells
-  grid <- make_grid(3, 3)
-  targets <- c(A = 5L, B = 4L)
+  # Construct a connected "star-like" shape where the center is an
+  # articulation point and the three leaves are not adjacent to each other.
+  #
+  # It is impossible to split 4 cells into two connected regions of size 2
+  # each, because any connected pair must include the center.
+  grid <- data.frame(
+    col = c(0L, 1L, -1L, 0L),
+    row = c(0L, 0L, 0L, 1L)
+  )
+  targets <- c(A = 2L, B = 2L)
 
-  # This configuration is known to fail because A takes the center cross,
-  # leaving the 4 corners for B which are not hex-adjacent
   expect_error(
     gghoneycomb:::allocate_regions(grid, targets),
-    "Frontier exhausted"
+    "Cannot grow region"
   )
 })
 
