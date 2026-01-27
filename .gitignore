@@ -2,6 +2,9 @@
 inst/doc
 docs
 
+# R plots
+Rplots.pdf
+
 # oh-my-opencode
 .sisyphus/
 
