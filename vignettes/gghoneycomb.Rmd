@@ -34,7 +34,7 @@ pollen <- data.frame(
 )
 
 ggplot(pollen, aes(fill = species, weight = count)) +
-  geom_honeycomb(n_cells = 80, compaction = 0.9, seed = 123) +
+  geom_honeycomb(n_cells = 80, compaction = 0.9, seed = 1) +
   scale_fill_honey() +
   theme_honeycomb() +
   coord_equal()
@@ -67,7 +67,7 @@ pollen_prop <- data.frame(
 )
 
 ggplot(pollen_prop, aes(fill = species, weight = prop)) +
-  geom_honeycomb(values_are = "proportions", n_cells = 80, seed = 123) +
+  geom_honeycomb(values_are = "proportions", n_cells = 80, seed = 1) +
   scale_fill_honey(direction = -1) +
   theme_honeycomb() +
   coord_equal()
