@@ -18,6 +18,7 @@ Imports:
 URL: https://github.com/dleopold/gghoneycomb, https://dleopold.github.io/gghoneycomb/
 BugReports: https://github.com/dleopold/gghoneycomb/issues
 Suggests: 
+    ggiraph,
     knitr,
     rmarkdown,
     testthat (>= 3.0.0)
