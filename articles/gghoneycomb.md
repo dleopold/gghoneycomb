@@ -1,6 +1,76 @@
 # Getting Started with gghoneycomb
 
-This vignette will demonstrate how to create honeycomb plots with
+This vignette demonstrates how to create honeycomb plots with
 gghoneycomb.
 
-*Content coming soon.*
+## Example: Pollen composition
+
+The honeycomb layout is useful for showing proportional abundance of
+categories. In this example, we visualize the pollen composition of a
+honey sample.
+
+``` r
+library(ggplot2)
+library(gghoneycomb)
+```
+
+``` r
+pollen <- data.frame(
+  species = c("Clover", "Wildflower", "Lavender", "Sunflower", "Other"),
+  count = c(45, 25, 15, 10, 5)
+)
+
+ggplot(pollen, aes(fill = species, weight = count)) +
+  geom_honeycomb(n_cells = 80, compaction = 0.9, seed = 123) +
+  scale_fill_honey() +
+  theme_honeycomb() +
+  coord_equal()
+#> Warning: Computation failed in `stat_honeycomb()`.
+#> Caused by error in `allocate_regions()`:
+#> ! Frontier exhausted for category 'Wildflower': allocated 18 of 20 cells. Consider increasing grid size or adjusting category proportions.
+```
+
+![](gghoneycomb_files/figure-html/basic-honeycomb-1.png)
+
+## Choosing the number of cells
+
+If you do not provide `n_cells`, gghoneycomb chooses a value based on
+the number of categories and the smallest proportion. As a rule of
+thumb, cell counts between 50 and 500 tend to work well for most plots;
+higher values increase detail but can make small regions harder to see.
+
+``` r
+ggplot(pollen, aes(fill = species, weight = count)) +
+  geom_honeycomb(compaction = 1) +
+  scale_fill_honey() +
+  theme_honeycomb() +
+  coord_equal()
+#> Warning: Computation failed in `stat_honeycomb()`.
+#> Caused by error in `allocate_regions()`:
+#> ! Frontier exhausted for category 'Other': allocated 4 of 5 cells. Consider increasing grid size or adjusting category proportions.
+```
+
+![](gghoneycomb_files/figure-html/auto-ncells-1.png)
+
+## Using proportions explicitly
+
+If you already have proportions, set `values_are = "proportions"` and
+pass the values via the `weight` aesthetic.
+
+``` r
+pollen_prop <- data.frame(
+  species = c("Clover", "Wildflower", "Lavender", "Sunflower", "Other"),
+  prop = c(0.45, 0.25, 0.15, 0.10, 0.05)
+)
+
+ggplot(pollen_prop, aes(fill = species, weight = prop)) +
+  geom_honeycomb(values_are = "proportions", n_cells = 80, seed = 123) +
+  scale_fill_honey(direction = -1) +
+  theme_honeycomb() +
+  coord_equal()
+#> Warning: Computation failed in `stat_honeycomb()`.
+#> Caused by error in `allocate_regions()`:
+#> ! Frontier exhausted for category 'Sunflower': allocated 7 of 8 cells. Consider increasing grid size or adjusting category proportions.
+```
+
+![](gghoneycomb_files/figure-html/proportions-1.png)
