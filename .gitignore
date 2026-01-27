@@ -2,6 +2,9 @@
 inst/doc
 docs
 
+# oh-my-opencode
+.sisyphus/
+
 # renv - local lockfile (CI installs from DESCRIPTION)
 renv.lock
 renv/library/
