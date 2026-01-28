@@ -78,13 +78,10 @@ honey sample.</p>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">pollen</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>fill <span class="op">=</span> <span class="va">species</span>, weight <span class="op">=</span> <span class="va">count</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
-<span>  <span class="fu"><a href="../reference/geom_honeycomb.html">geom_honeycomb</a></span><span class="op">(</span>n_cells <span class="op">=</span> <span class="fl">80</span>, compaction <span class="op">=</span> <span class="fl">0.9</span>, seed <span class="op">=</span> <span class="fl">123</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="../reference/geom_honeycomb.html">geom_honeycomb</a></span><span class="op">(</span>n_cells <span class="op">=</span> <span class="fl">80</span>, compaction <span class="op">=</span> <span class="fl">0.9</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu"><a href="../reference/scale_honey.html">scale_fill_honey</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu"><a href="../reference/theme_honeycomb.html">theme_honeycomb</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
-<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/coord_fixed.html" class="external-link">coord_equal</a></span><span class="op">(</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Warning: Computation failed in `stat_honeycomb()`.</span></span>
-<span><span class="co">#&gt; Caused by error in `allocate_regions()`:</span></span>
-<span><span class="co">#&gt; <span style="color: #BBBB00;">!</span> Frontier exhausted for category 'Wildflower': allocated 18 of 20 cells. Consider increasing grid size or adjusting category proportions.</span></span></code></pre></div>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/coord_fixed.html" class="external-link">coord_equal</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 <p><img src="gghoneycomb_files/figure-html/basic-honeycomb-1.png" class="r-plt" alt="" width="700"></p>
 </div>
 <div class="section level2">
@@ -100,10 +97,7 @@ harder to see.</p>
 <span>  <span class="fu"><a href="../reference/geom_honeycomb.html">geom_honeycomb</a></span><span class="op">(</span>compaction <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu"><a href="../reference/scale_honey.html">scale_fill_honey</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu"><a href="../reference/theme_honeycomb.html">theme_honeycomb</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
-<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/coord_fixed.html" class="external-link">coord_equal</a></span><span class="op">(</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Warning: Computation failed in `stat_honeycomb()`.</span></span>
-<span><span class="co">#&gt; Caused by error in `allocate_regions()`:</span></span>
-<span><span class="co">#&gt; <span style="color: #BBBB00;">!</span> Frontier exhausted for category 'Other': allocated 4 of 5 cells. Consider increasing grid size or adjusting category proportions.</span></span></code></pre></div>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/coord_fixed.html" class="external-link">coord_equal</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 <p><img src="gghoneycomb_files/figure-html/auto-ncells-1.png" class="r-plt" alt="" width="700"></p>
 </div>
 <div class="section level2">
@@ -119,13 +113,10 @@ harder to see.</p>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">pollen_prop</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>fill <span class="op">=</span> <span class="va">species</span>, weight <span class="op">=</span> <span class="va">prop</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
-<span>  <span class="fu"><a href="../reference/geom_honeycomb.html">geom_honeycomb</a></span><span class="op">(</span>values_are <span class="op">=</span> <span class="st">"proportions"</span>, n_cells <span class="op">=</span> <span class="fl">80</span>, seed <span class="op">=</span> <span class="fl">123</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="../reference/geom_honeycomb.html">geom_honeycomb</a></span><span class="op">(</span>values_are <span class="op">=</span> <span class="st">"proportions"</span>, n_cells <span class="op">=</span> <span class="fl">80</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu"><a href="../reference/scale_honey.html">scale_fill_honey</a></span><span class="op">(</span>direction <span class="op">=</span> <span class="op">-</span><span class="fl">1</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu"><a href="../reference/theme_honeycomb.html">theme_honeycomb</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
-<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/coord_fixed.html" class="external-link">coord_equal</a></span><span class="op">(</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Warning: Computation failed in `stat_honeycomb()`.</span></span>
-<span><span class="co">#&gt; Caused by error in `allocate_regions()`:</span></span>
-<span><span class="co">#&gt; <span style="color: #BBBB00;">!</span> Frontier exhausted for category 'Sunflower': allocated 7 of 8 cells. Consider increasing grid size or adjusting category proportions.</span></span></code></pre></div>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/coord_fixed.html" class="external-link">coord_equal</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 <p><img src="gghoneycomb_files/figure-html/proportions-1.png" class="r-plt" alt="" width="700"></p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

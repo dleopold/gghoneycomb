@@ -21,13 +21,10 @@ pollen <- data.frame(
 )
 
 ggplot(pollen, aes(fill = species, weight = count)) +
-  geom_honeycomb(n_cells = 80, compaction = 0.9, seed = 123) +
+  geom_honeycomb(n_cells = 80, compaction = 0.9, seed = 1) +
   scale_fill_honey() +
   theme_honeycomb() +
   coord_equal()
-#> Warning: Computation failed in `stat_honeycomb()`.
-#> Caused by error in `allocate_regions()`:
-#> ! Frontier exhausted for category 'Wildflower': allocated 18 of 20 cells. Consider increasing grid size or adjusting category proportions.
 ```
 
 ![](gghoneycomb_files/figure-html/basic-honeycomb-1.png)
@@ -45,9 +42,6 @@ ggplot(pollen, aes(fill = species, weight = count)) +
   scale_fill_honey() +
   theme_honeycomb() +
   coord_equal()
-#> Warning: Computation failed in `stat_honeycomb()`.
-#> Caused by error in `allocate_regions()`:
-#> ! Frontier exhausted for category 'Other': allocated 4 of 5 cells. Consider increasing grid size or adjusting category proportions.
 ```
 
 ![](gghoneycomb_files/figure-html/auto-ncells-1.png)
@@ -64,13 +58,10 @@ pollen_prop <- data.frame(
 )
 
 ggplot(pollen_prop, aes(fill = species, weight = prop)) +
-  geom_honeycomb(values_are = "proportions", n_cells = 80, seed = 123) +
+  geom_honeycomb(values_are = "proportions", n_cells = 80, seed = 1) +
   scale_fill_honey(direction = -1) +
   theme_honeycomb() +
   coord_equal()
-#> Warning: Computation failed in `stat_honeycomb()`.
-#> Caused by error in `allocate_regions()`:
-#> ! Frontier exhausted for category 'Sunflower': allocated 7 of 8 cells. Consider increasing grid size or adjusting category proportions.
 ```
 
 ![](gghoneycomb_files/figure-html/proportions-1.png)
