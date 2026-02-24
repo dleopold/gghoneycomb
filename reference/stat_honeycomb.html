@@ -56,12 +56,16 @@ positions. This stat is typically used with <code><a href="geom_honeycomb.html">
 <span>  inherit.aes <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  values_are <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"auto"</span>, <span class="st">"counts"</span>, <span class="st">"proportions"</span><span class="op">)</span>,</span>
 <span>  n_cells <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  compaction <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>  silhouette <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"rect"</span>, <span class="st">"rounded"</span>, <span class="st">"organic"</span><span class="op">)</span>,</span>
+<span>  layout <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"compact"</span>, <span class="st">"free"</span><span class="op">)</span>,</span>
+<span>  compact_style <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"perimeter"</span>, <span class="st">"blocky"</span><span class="op">)</span>,</span>
+<span>  temperature <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  min_width <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  max_width <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  min_height <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  max_height <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  rotation <span class="op">=</span> <span class="fl">0</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -123,15 +127,43 @@ automatically chosen based on the number of categories and minimum
 proportion. Maximum allowed is 2500.</p></dd>
 
 
-<dt id="arg-compaction">compaction<a class="anchor" aria-label="anchor" href="#arg-compaction"></a></dt>
-<dd><p>Controls the regularity of the honeycomb boundary:</p><dl><dt><code>1</code></dt>
-<dd><p>(Default) Rectangular bounding grid.</p></dd>
+<dt id="arg-silhouette">silhouette<a class="anchor" aria-label="anchor" href="#arg-silhouette"></a></dt>
+<dd><p>Shape of the overall honeycomb boundary.
+Accepted values: <code>"rect"</code> (default), <code>"rounded"</code>, <code>"organic"</code>.
+All three silhouettes produce a connected mask of the requested size.
+<code>"rounded"</code> softens the corners of a rectangular grid; <code>"organic"</code>
+grows an irregular boundary from a central seed.</p></dd>
 
-<dt><code>&lt; 1</code></dt>
-<dd><p>Increasingly irregular silhouette via boundary erosion.</p></dd>
+
+<dt id="arg-layout">layout<a class="anchor" aria-label="anchor" href="#arg-layout"></a></dt>
+<dd><p>Region allocation strategy.
+Accepted values: <code>"compact"</code> (default), <code>"free"</code>.
+<code>"compact"</code> assigns cells deterministically (<code>temperature</code> must be 0);
+<code>"free"</code> uses stochastic top-K sampling controlled by <code>temperature</code>.</p></dd>
 
 
-</dl><p>Must be in the range (0, 1].</p></dd>
+<dt id="arg-compact-style">compact_style<a class="anchor" aria-label="anchor" href="#arg-compact-style"></a></dt>
+<dd><p>Style of region packing when <code>layout = "compact"</code>.
+Accepted values: <code>"perimeter"</code> (default), <code>"blocky"</code>.
+<code>"perimeter"</code> minimises region perimeter via greedy growth with a
+carve fallback; <code>"blocky"</code> uses directional face-carving.
+<code>"blocky"</code> requires <code>silhouette = "rect"</code>.</p></dd>
+
+
+<dt id="arg-temperature">temperature<a class="anchor" aria-label="anchor" href="#arg-temperature"></a></dt>
+<dd><p>Controls randomness in region allocation. A single
+non-negative number:</p><dl><dt><code>NULL</code></dt>
+<dd><p>(Default) Automatically set: 0 for <code>layout = "compact"</code>,
+0.35 for <code>layout = "free"</code>.</p></dd>
+
+<dt><code>0</code></dt>
+<dd><p>Deterministic allocation. Required when <code>layout = "compact"</code>.</p></dd>
+
+<dt><code>&gt; 0</code></dt>
+<dd><p>Increasing randomness. Only valid with <code>layout = "free"</code>.</p></dd>
+
+
+</dl></dd>
 
 
 <dt id="arg-min-width-max-width">min_width, max_width<a class="anchor" aria-label="anchor" href="#arg-min-width-max-width"></a></dt>
@@ -145,12 +177,19 @@ Default <code>NULL</code> means no constraint.</p></dd>
 
 
 <dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
-<dd><p>Random seed for reproducible layouts when <code>compaction &lt; 1</code>.
-If <code>NULL</code>, uses a random seed.</p></dd>
+<dd><p>Random seed for reproducible layouts. If <code>NULL</code>, uses a
+random seed.</p></dd>
+
+
+<dt id="arg-rotation">rotation<a class="anchor" aria-label="anchor" href="#arg-rotation"></a></dt>
+<dd><p>Rotation of the rendered honeycomb in degrees.
+Must be one of <code>0</code>, <code>90</code>, <code>180</code>, <code>270</code>. Rotation is applied to output
+coordinates only (grid allocation/contiguity are unchanged).</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
-<dd><p>Other arguments passed to the stat.</p></dd>
+<dd><p>Other arguments passed to the stat. Passing the removed
+argument will raise an error with migration guidance.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -217,6 +256,26 @@ the honeycomb layout is computed internally based on the weights.</p>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">df_prop</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>fill <span class="op">=</span> <span class="va">category</span>, weight <span class="op">=</span> <span class="va">prop</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span></span>
 <span class="r-in"><span>  <span class="fu">stat_honeycomb</span><span class="op">(</span>values_are <span class="op">=</span> <span class="st">"proportions"</span><span class="op">)</span></span></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># Free layout with high temperature and rotation</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">df</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>fill <span class="op">=</span> <span class="va">category</span>, weight <span class="op">=</span> <span class="va">count</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span></span>
+<span class="r-in"><span>  <span class="fu">stat_honeycomb</span><span class="op">(</span></span></span>
+<span class="r-in"><span>    n_cells     <span class="op">=</span> <span class="fl">100</span>,</span></span>
+<span class="r-in"><span>    silhouette  <span class="op">=</span> <span class="st">"organic"</span>,</span></span>
+<span class="r-in"><span>    layout      <span class="op">=</span> <span class="st">"free"</span>,</span></span>
+<span class="r-in"><span>    temperature <span class="op">=</span> <span class="fl">0.8</span>,</span></span>
+<span class="r-in"><span>    rotation    <span class="op">=</span> <span class="fl">90</span>,</span></span>
+<span class="r-in"><span>    seed        <span class="op">=</span> <span class="fl">7</span></span></span>
+<span class="r-in"><span>  <span class="op">)</span></span></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># Blocky compact style (requires silhouette = "rect")</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">df</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>fill <span class="op">=</span> <span class="va">category</span>, weight <span class="op">=</span> <span class="va">count</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span></span>
+<span class="r-in"><span>  <span class="fu">stat_honeycomb</span><span class="op">(</span></span></span>
+<span class="r-in"><span>    n_cells       <span class="op">=</span> <span class="fl">100</span>,</span></span>
+<span class="r-in"><span>    silhouette    <span class="op">=</span> <span class="st">"rect"</span>,</span></span>
+<span class="r-in"><span>    layout        <span class="op">=</span> <span class="st">"compact"</span>,</span></span>
+<span class="r-in"><span>    compact_style <span class="op">=</span> <span class="st">"blocky"</span></span></span>
+<span class="r-in"><span>  <span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>

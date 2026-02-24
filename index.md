@@ -1,7 +1,28 @@
 # gghoneycomb
 
-gghoneycomb provides geoms and stats for creating honeycomb-style
-hexagonal grid visualizations as an extension to ggplot2.
+gghoneycomb is a ggplot2 extension for creating honeycomb waffle charts,
+where each category forms a contiguous region of hexagonal cells
+proportional to its share of the data.
+
+## Features
+
+- Each category occupies a single connected region of hexagons, so
+  relative sizes read at a glance
+- Three silhouette shapes: `"rect"` (clean grid), `"rounded"` (softened
+  corners), `"organic"` (irregular, grown from a seed)
+- Two layout modes: `"compact"` (deterministic, perimeter-minimizing or
+  blocky) and `"free"` (stochastic, controlled by `temperature`)
+- Compact styles: `"perimeter"` minimizes region boundary length;
+  `"blocky"` carves rectangular blocks (requires `silhouette = "rect"`)
+- Honey-inspired discrete color palette via
+  [`scale_fill_honey()`](https://dleopold.github.io/gghoneycomb/reference/scale_honey.md)
+  and
+  [`scale_color_honey()`](https://dleopold.github.io/gghoneycomb/reference/scale_honey.md)
+- Minimal void-based theme via
+  [`theme_honeycomb()`](https://dleopold.github.io/gghoneycomb/reference/theme_honeycomb.md)
+- Fully reproducible layouts with the `seed` parameter
+- Output rotation in 90-degree increments via `rotation` (0, 90, 180,
+  270)
 
 ## Installation
 
@@ -13,9 +34,146 @@ You can install the development version of gghoneycomb from
 pak::pak("dleopold/gghoneycomb")
 ```
 
-## Example
+## Quick Start
 
-*Examples coming soon.*
+``` r
+library(ggplot2)
+library(gghoneycomb)
+
+pollen <- data.frame(
+  species = c("Clover", "Wildflower", "Lavender", "Sunflower", "Other"),
+  count   = c(45, 25, 15, 10, 5)
+)
+
+ggplot(pollen, aes(fill = species, weight = count)) +
+  geom_honeycomb(n_cells = 100, silhouette = "rounded", layout = "free", seed = 1) +
+  scale_fill_honey() +
+  theme_honeycomb() +
+  coord_equal()
+```
+
+Map `fill` to the category variable and `weight` to counts or
+proportions.
+[`coord_equal()`](https://ggplot2.tidyverse.org/reference/coord_fixed.html)
+keeps the hexagons regular. Everything else is optional.
+
+## Gallery
+
+### Compact rectangular (default)
+
+The default settings produce a clean rectangular grid with
+perimeter-minimizing region growth. No seed needed because the layout is
+deterministic.
+
+``` r
+library(ggplot2)
+library(gghoneycomb)
+
+pollen <- data.frame(
+  species = c("Clover", "Wildflower", "Lavender", "Sunflower", "Other"),
+  count   = c(45, 25, 15, 10, 5)
+)
+
+ggplot(pollen, aes(fill = species, weight = count)) +
+  geom_honeycomb(n_cells = 100) +
+  scale_fill_honey() +
+  theme_honeycomb() +
+  coord_equal()
+```
+
+### Organic silhouette with free layout
+
+`silhouette = "organic"` grows an irregular boundary from a central
+seed. Pair it with `layout = "free"` and `temperature` to control how
+loosely the regions spread.
+
+``` r
+ggplot(pollen, aes(fill = species, weight = count)) +
+  geom_honeycomb(
+    n_cells    = 120,
+    silhouette = "organic",
+    layout     = "free",
+    temperature = 0.35,
+    seed       = 42
+  ) +
+  scale_fill_honey() +
+  theme_honeycomb() +
+  coord_equal()
+```
+
+### Blocky compact style
+
+`compact_style = "blocky"` carves rectangular blocks instead of
+minimizing perimeter. It requires `silhouette = "rect"` and produces a
+treemap-like appearance.
+
+``` r
+ggplot(pollen, aes(fill = species, weight = count)) +
+  geom_honeycomb(
+    n_cells       = 100,
+    silhouette    = "rect",
+    layout        = "compact",
+    compact_style = "blocky"
+  ) +
+  scale_fill_honey() +
+  theme_honeycomb() +
+  coord_equal()
+```
+
+### Rotated layout
+
+`rotation` rotates the rendered honeycomb in 90-degree increments
+without changing the allocation. Useful for switching between portrait
+and landscape orientations.
+
+``` r
+ggplot(pollen, aes(fill = species, weight = count)) +
+  geom_honeycomb(
+    n_cells    = 100,
+    silhouette = "rect",
+    rotation   = 90,
+    seed       = 1
+  ) +
+  scale_fill_honey() +
+  theme_honeycomb() +
+  coord_equal()
+```
+
+### Proportions input with reversed palette
+
+If your data is already in proportions, set
+`values_are = "proportions"`. Pass `direction = -1` to
+[`scale_fill_honey()`](https://dleopold.github.io/gghoneycomb/reference/scale_honey.md)
+to reverse the palette order.
+
+``` r
+pollen_prop <- data.frame(
+  species = c("Clover", "Wildflower", "Lavender", "Sunflower", "Other"),
+  prop    = c(0.45, 0.25, 0.15, 0.10, 0.05)
+)
+
+ggplot(pollen_prop, aes(fill = species, weight = prop)) +
+  geom_honeycomb(
+    values_are = "proportions",
+    n_cells    = 100,
+    seed       = 7
+  ) +
+  scale_fill_honey(direction = -1) +
+  theme_honeycomb() +
+  coord_equal()
+```
+
+## Learn More
+
+Full documentation and rendered examples live at
+<https://dleopold.github.io/gghoneycomb/>.
+
+The Getting Started vignette walks through silhouette shapes, layout
+modes, cell count selection, and proportions input in detail:
+
+``` r
+vignette("gghoneycomb")
+```
 
 ## Development Workflow (renv)
 

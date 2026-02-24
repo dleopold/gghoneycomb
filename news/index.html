@@ -34,10 +34,67 @@
     </div>
 
     <div class="section level2">
-<h2 class="pkg-version" data-toc-text="0.0.0.9000" id="gghoneycomb-0009000">gghoneycomb 0.0.0.9000<a class="anchor" aria-label="anchor" href="#gghoneycomb-0009000"></a></h2>
-<ul><li>Initial package scaffolding and infrastructure setup.</li>
+<h2 class="pkg-version" data-toc-text="0.0.0.9000" id="gghoneycomb-0009000-development">gghoneycomb 0.0.0.9000 (development)<a class="anchor" aria-label="anchor" href="#gghoneycomb-0009000-development"></a></h2>
+<div class="section level3">
+<h3 id="breaking-changes-0-0-0-9000">Breaking changes<a class="anchor" aria-label="anchor" href="#breaking-changes-0-0-0-9000"></a></h3>
+<ul><li>The <code>compaction</code> parameter has been removed. Replace it with the new <code>silhouette</code>, <code>layout</code>, <code>compact_style</code>, and <code>temperature</code> parameters. Passing <code>compaction</code> now raises an error with migration guidance:
+<ul><li>
+<code>compaction = 1</code> -&gt; <code>silhouette = "rect"</code>
+</li>
+<li>
+<code>compaction &lt; 1</code> -&gt; <code>silhouette = "rounded"</code> or <code>silhouette = "organic"</code>
+</li>
+</ul></li>
 </ul></div>
-  </main></div>
+<div class="section level3">
+<h3 id="new-features-0-0-0-9000">New features<a class="anchor" aria-label="anchor" href="#new-features-0-0-0-9000"></a></h3>
+<div class="section level4">
+<h4 id="silhouette-shapes-0-0-0-9000">Silhouette shapes<a class="anchor" aria-label="anchor" href="#silhouette-shapes-0-0-0-9000"></a></h4>
+<ul><li>
+<code>silhouette = "rect"</code> (default): clean rectangular grid, same footprint as before.</li>
+<li>
+<code>silhouette = "rounded"</code>: rectangular grid with softened corners for a friendlier look.</li>
+<li>
+<code>silhouette = "organic"</code>: irregular boundary grown outward from a central seed, producing a natural, blob-like shape.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="layout-modes-0-0-0-9000">Layout modes<a class="anchor" aria-label="anchor" href="#layout-modes-0-0-0-9000"></a></h4>
+<ul><li>
+<code>layout = "compact"</code> (default): deterministic region allocation. <code>temperature</code> must be 0 (the default).</li>
+<li>
+<code>layout = "free"</code>: stochastic top-K sampling. <code>temperature</code> controls randomness; the default is 0.35. Requires <code>seed</code> for reproducibility.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="compact-styles-0-0-0-9000">Compact styles<a class="anchor" aria-label="anchor" href="#compact-styles-0-0-0-9000"></a></h4>
+<ul><li>
+<code>compact_style = "perimeter"</code> (default): greedy growth that minimizes region perimeter at each step, with a carve fallback to guarantee contiguity.</li>
+<li>
+<code>compact_style = "blocky"</code>: directional face-carving that produces rectangular, treemap-like blocks. Requires <code>silhouette = "rect"</code>.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="temperature-control-0-0-0-9000">Temperature control<a class="anchor" aria-label="anchor" href="#temperature-control-0-0-0-9000"></a></h4>
+<ul><li>
+<code>temperature</code>: a single non-negative number. <code>NULL</code> (default) picks 0 for compact layouts and 0.35 for free layouts automatically.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="other-0-0-0-9000">Other<a class="anchor" aria-label="anchor" href="#other-0-0-0-9000"></a></h4>
+<ul><li><p>Category contiguity is guaranteed in all layout modes.</p></li>
+<li><p>Compactness scoring utilities are available as internal helpers (<code>hex-compactness</code> topic).</p></li>
+<li><p><code>seed</code> parameter now works consistently across all silhouette and layout combinations.</p></li>
+<li><p><code>n_cells</code> hard cap raised to 2500.</p></li>
+<li><p><code>rotation</code> parameter (0, 90, 180, 270) rotates the rendered honeycomb. Applied to output coordinates only; allocation and contiguity are unchanged.</p></li>
+<li><p>Higher <code>temperature</code> values in free mode produce more irregular, less compact category regions while preserving per-category connectivity.</p></li>
+</ul></div>
+</div>
+<div class="section level3">
+<h3 id="documentation-0-0-0-9000">Documentation<a class="anchor" aria-label="anchor" href="#documentation-0-0-0-9000"></a></h3>
+<ul><li>New “Getting Started” vignette covering silhouette shapes, layout modes, cell count selection, proportions input, and grid constraints.</li>
+<li>README rewritten with a Features overview, Quick Start example, and a four-example Gallery.</li>
+<li>pkgdown reference page organized into logical groups: honeycomb plots, scales and themes, hex grid utilities.</li>
+</ul></div>
+</div>
+  </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
+    </nav></aside></div>
 
 
     <footer><div class="pkgdown-footer-left">

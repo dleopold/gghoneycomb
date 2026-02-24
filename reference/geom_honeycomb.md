@@ -18,12 +18,16 @@ geom_honeycomb(
   inherit.aes = TRUE,
   values_are = c("auto", "counts", "proportions"),
   n_cells = NULL,
-  compaction = 1,
+  silhouette = c("rect", "rounded", "organic"),
+  layout = c("compact", "free"),
+  compact_style = c("perimeter", "blocky"),
+  temperature = NULL,
   min_width = NULL,
   max_width = NULL,
   min_height = NULL,
   max_height = NULL,
   seed = NULL,
+  rotation = 0,
   ...
 )
 ```
@@ -87,19 +91,45 @@ geom_honeycomb(
   chosen based on the number of categories and minimum proportion.
   Maximum allowed is 2500.
 
-- compaction:
+- silhouette:
 
-  Controls the regularity of the honeycomb boundary:
+  Shape of the overall honeycomb boundary. Accepted values: `"rect"`
+  (default), `"rounded"`, `"organic"`. All three silhouettes produce a
+  connected mask of the requested size. `"rounded"` softens the corners
+  of a rectangular grid; `"organic"` grows an irregular boundary from a
+  central seed.
 
-  `1`
+- layout:
 
-  :   (Default) Rectangular bounding grid.
+  Region allocation strategy. Accepted values: `"compact"` (default),
+  `"free"`. `"compact"` assigns cells deterministically (`temperature`
+  must be 0); `"free"` uses stochastic top-K sampling controlled by
+  `temperature`.
 
-  `< 1`
+- compact_style:
 
-  :   Increasingly irregular silhouette via boundary erosion.
+  Style of region packing when `layout = "compact"`. Accepted values:
+  `"perimeter"` (default), `"blocky"`. `"perimeter"` minimises region
+  perimeter via greedy growth with a carve fallback; `"blocky"` uses
+  directional face-carving. `"blocky"` requires `silhouette = "rect"`.
 
-  Must be in the range (0, 1\].
+- temperature:
+
+  Controls randomness in region allocation. A single non-negative
+  number:
+
+  `NULL`
+
+  :   (Default) Automatically set: 0 for `layout = "compact"`, 0.35 for
+      `layout = "free"`.
+
+  `0`
+
+  :   Deterministic allocation. Required when `layout = "compact"`.
+
+  `> 0`
+
+  :   Increasing randomness. Only valid with `layout = "free"`.
 
 - min_width, max_width:
 
@@ -113,13 +143,20 @@ geom_honeycomb(
 
 - seed:
 
-  Random seed for reproducible layouts when `compaction < 1`. If `NULL`,
-  uses a random seed.
+  Random seed for reproducible layouts. If `NULL`, uses a random seed.
+
+- rotation:
+
+  Rotation of the rendered honeycomb in degrees. Must be one of `0`,
+  `90`, `180`, `270`. Rotation is applied to output coordinates only
+  (grid allocation/contiguity are unchanged).
 
 - ...:
 
   Other arguments passed to
   [`ggplot2::layer()`](https://ggplot2.tidyverse.org/reference/layer.html).
+  Passing the removed argument will raise an error with migration
+  guidance.
 
 ## Value
 
@@ -247,9 +284,9 @@ ggplot(pollen_prop, aes(fill = species, weight = prop)) +
   geom_honeycomb(values_are = "proportions") +
   coord_equal()
 
-# Control cell count and layout
+# Control cell count and silhouette
 ggplot(pollen_data, aes(fill = species, weight = count)) +
-  geom_honeycomb(n_cells = 50, compaction = 0.8, seed = 42) +
+  geom_honeycomb(n_cells = 50, silhouette = "rounded", layout = "free", seed = 42) +
   coord_equal()
 
 # Optional tooltip usage with ggiraph

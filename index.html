@@ -11,8 +11,8 @@
 <script src="deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><meta property="og:title" content="Honeycomb Plots for ggplot2">
-<meta name="description" content="Provides geoms and stats for creating honeycomb-style hexagonal grid visualizations as an extension to ggplot2. Enables the display of categorical or continuous data in a compact, visually appealing hexagonal layout.">
-<meta property="og:description" content="Provides geoms and stats for creating honeycomb-style hexagonal grid visualizations as an extension to ggplot2. Enables the display of categorical or continuous data in a compact, visually appealing hexagonal layout.">
+<meta name="description" content="A ggplot2 extension for honeycomb waffle charts where each category forms a contiguous region of hexagonal cells. Supports rectangular, rounded, and organic silhouette shapes; compact and free (temperature-controlled) layout modes; 90-degree rotation; and a honey-inspired color palette.">
+<meta property="og:description" content="A ggplot2 extension for honeycomb waffle charts where each category forms a contiguous region of hexagonal cells. Supports rectangular, rounded, and organic silhouette shapes; compact and free (temperature-controlled) layout modes; 90-degree rotation; and a honey-inspired color palette.">
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -52,7 +52,23 @@
 </h1></div>
 <!-- badges: start -->
 
-<p>gghoneycomb provides geoms and stats for creating honeycomb-style hexagonal grid visualizations as an extension to ggplot2.</p>
+<p>gghoneycomb is a ggplot2 extension for creating honeycomb waffle charts, where each category forms a contiguous region of hexagonal cells proportional to its share of the data.</p>
+<div class="section level2">
+<h2 id="features">Features<a class="anchor" aria-label="anchor" href="#features"></a>
+</h2>
+<ul>
+<li>Each category occupies a single connected region of hexagons, so relative sizes read at a glance</li>
+<li>Three silhouette shapes: <code>"rect"</code> (clean grid), <code>"rounded"</code> (softened corners), <code>"organic"</code> (irregular, grown from a seed)</li>
+<li>Two layout modes: <code>"compact"</code> (deterministic, perimeter-minimizing or blocky) and <code>"free"</code> (stochastic, controlled by <code>temperature</code>)</li>
+<li>Compact styles: <code>"perimeter"</code> minimizes region boundary length; <code>"blocky"</code> carves rectangular blocks (requires <code>silhouette = "rect"</code>)</li>
+<li>Honey-inspired discrete color palette via <code><a href="reference/scale_honey.html">scale_fill_honey()</a></code> and <code><a href="reference/scale_honey.html">scale_color_honey()</a></code>
+</li>
+<li>Minimal void-based theme via <code><a href="reference/theme_honeycomb.html">theme_honeycomb()</a></code>
+</li>
+<li>Fully reproducible layouts with the <code>seed</code> parameter</li>
+<li>Output rotation in 90-degree increments via <code>rotation</code> (0, 90, 180, 270)</li>
+</ul>
+</div>
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
@@ -62,9 +78,123 @@
 <span><span class="fu">pak</span><span class="fu">::</span><span class="fu"><a href="https://pak.r-lib.org/reference/pak.html" class="external-link">pak</a></span><span class="op">(</span><span class="st">"dleopold/gghoneycomb"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="example">Example<a class="anchor" aria-label="anchor" href="#example"></a>
+<h2 id="quick-start">Quick Start<a class="anchor" aria-label="anchor" href="#quick-start"></a>
 </h2>
-<p><em>Examples coming soon.</em></p>
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://ggplot2.tidyverse.org" class="external-link">ggplot2</a></span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/dleopold/gghoneycomb" class="external-link">gghoneycomb</a></span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">pollen</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>  species <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Clover"</span>, <span class="st">"Wildflower"</span>, <span class="st">"Lavender"</span>, <span class="st">"Sunflower"</span>, <span class="st">"Other"</span><span class="op">)</span>,</span>
+<span>  count   <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">45</span>, <span class="fl">25</span>, <span class="fl">15</span>, <span class="fl">10</span>, <span class="fl">5</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">pollen</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>fill <span class="op">=</span> <span class="va">species</span>, weight <span class="op">=</span> <span class="va">count</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="reference/geom_honeycomb.html">geom_honeycomb</a></span><span class="op">(</span>n_cells <span class="op">=</span> <span class="fl">100</span>, silhouette <span class="op">=</span> <span class="st">"rounded"</span>, layout <span class="op">=</span> <span class="st">"free"</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="reference/scale_honey.html">scale_fill_honey</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="reference/theme_honeycomb.html">theme_honeycomb</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/coord_fixed.html" class="external-link">coord_equal</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+<p>Map <code>fill</code> to the category variable and <code>weight</code> to counts or proportions. <code><a href="https://ggplot2.tidyverse.org/reference/coord_fixed.html" class="external-link">coord_equal()</a></code> keeps the hexagons regular. Everything else is optional.</p>
+</div>
+<div class="section level2">
+<h2 id="gallery">Gallery<a class="anchor" aria-label="anchor" href="#gallery"></a>
+</h2>
+<div class="section level3">
+<h3 id="compact-rectangular-default">Compact rectangular (default)<a class="anchor" aria-label="anchor" href="#compact-rectangular-default"></a>
+</h3>
+<p>The default settings produce a clean rectangular grid with perimeter-minimizing region growth. No seed needed because the layout is deterministic.</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://ggplot2.tidyverse.org" class="external-link">ggplot2</a></span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/dleopold/gghoneycomb" class="external-link">gghoneycomb</a></span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">pollen</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>  species <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Clover"</span>, <span class="st">"Wildflower"</span>, <span class="st">"Lavender"</span>, <span class="st">"Sunflower"</span>, <span class="st">"Other"</span><span class="op">)</span>,</span>
+<span>  count   <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">45</span>, <span class="fl">25</span>, <span class="fl">15</span>, <span class="fl">10</span>, <span class="fl">5</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">pollen</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>fill <span class="op">=</span> <span class="va">species</span>, weight <span class="op">=</span> <span class="va">count</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="reference/geom_honeycomb.html">geom_honeycomb</a></span><span class="op">(</span>n_cells <span class="op">=</span> <span class="fl">100</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="reference/scale_honey.html">scale_fill_honey</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="reference/theme_honeycomb.html">theme_honeycomb</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/coord_fixed.html" class="external-link">coord_equal</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="organic-silhouette-with-free-layout">Organic silhouette with free layout<a class="anchor" aria-label="anchor" href="#organic-silhouette-with-free-layout"></a>
+</h3>
+<p><code>silhouette = "organic"</code> grows an irregular boundary from a central seed. Pair it with <code>layout = "free"</code> and <code>temperature</code> to control how loosely the regions spread.</p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">pollen</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>fill <span class="op">=</span> <span class="va">species</span>, weight <span class="op">=</span> <span class="va">count</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="reference/geom_honeycomb.html">geom_honeycomb</a></span><span class="op">(</span></span>
+<span>    n_cells    <span class="op">=</span> <span class="fl">120</span>,</span>
+<span>    silhouette <span class="op">=</span> <span class="st">"organic"</span>,</span>
+<span>    layout     <span class="op">=</span> <span class="st">"free"</span>,</span>
+<span>    temperature <span class="op">=</span> <span class="fl">0.35</span>,</span>
+<span>    seed       <span class="op">=</span> <span class="fl">42</span></span>
+<span>  <span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="reference/scale_honey.html">scale_fill_honey</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="reference/theme_honeycomb.html">theme_honeycomb</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/coord_fixed.html" class="external-link">coord_equal</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="blocky-compact-style">Blocky compact style<a class="anchor" aria-label="anchor" href="#blocky-compact-style"></a>
+</h3>
+<p><code>compact_style = "blocky"</code> carves rectangular blocks instead of minimizing perimeter. It requires <code>silhouette = "rect"</code> and produces a treemap-like appearance.</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">pollen</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>fill <span class="op">=</span> <span class="va">species</span>, weight <span class="op">=</span> <span class="va">count</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="reference/geom_honeycomb.html">geom_honeycomb</a></span><span class="op">(</span></span>
+<span>    n_cells       <span class="op">=</span> <span class="fl">100</span>,</span>
+<span>    silhouette    <span class="op">=</span> <span class="st">"rect"</span>,</span>
+<span>    layout        <span class="op">=</span> <span class="st">"compact"</span>,</span>
+<span>    compact_style <span class="op">=</span> <span class="st">"blocky"</span></span>
+<span>  <span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="reference/scale_honey.html">scale_fill_honey</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="reference/theme_honeycomb.html">theme_honeycomb</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/coord_fixed.html" class="external-link">coord_equal</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="rotated-layout">Rotated layout<a class="anchor" aria-label="anchor" href="#rotated-layout"></a>
+</h3>
+<p><code>rotation</code> rotates the rendered honeycomb in 90-degree increments without changing the allocation. Useful for switching between portrait and landscape orientations.</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">pollen</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>fill <span class="op">=</span> <span class="va">species</span>, weight <span class="op">=</span> <span class="va">count</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="reference/geom_honeycomb.html">geom_honeycomb</a></span><span class="op">(</span></span>
+<span>    n_cells    <span class="op">=</span> <span class="fl">100</span>,</span>
+<span>    silhouette <span class="op">=</span> <span class="st">"rect"</span>,</span>
+<span>    rotation   <span class="op">=</span> <span class="fl">90</span>,</span>
+<span>    seed       <span class="op">=</span> <span class="fl">1</span></span>
+<span>  <span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="reference/scale_honey.html">scale_fill_honey</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="reference/theme_honeycomb.html">theme_honeycomb</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/coord_fixed.html" class="external-link">coord_equal</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="proportions-input-with-reversed-palette">Proportions input with reversed palette<a class="anchor" aria-label="anchor" href="#proportions-input-with-reversed-palette"></a>
+</h3>
+<p>If your data is already in proportions, set <code>values_are = "proportions"</code>. Pass <code>direction = -1</code> to <code><a href="reference/scale_honey.html">scale_fill_honey()</a></code> to reverse the palette order.</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">pollen_prop</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>  species <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Clover"</span>, <span class="st">"Wildflower"</span>, <span class="st">"Lavender"</span>, <span class="st">"Sunflower"</span>, <span class="st">"Other"</span><span class="op">)</span>,</span>
+<span>  prop    <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.45</span>, <span class="fl">0.25</span>, <span class="fl">0.15</span>, <span class="fl">0.10</span>, <span class="fl">0.05</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">pollen_prop</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>fill <span class="op">=</span> <span class="va">species</span>, weight <span class="op">=</span> <span class="va">prop</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="reference/geom_honeycomb.html">geom_honeycomb</a></span><span class="op">(</span></span>
+<span>    values_are <span class="op">=</span> <span class="st">"proportions"</span>,</span>
+<span>    n_cells    <span class="op">=</span> <span class="fl">100</span>,</span>
+<span>    seed       <span class="op">=</span> <span class="fl">7</span></span>
+<span>  <span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="reference/scale_honey.html">scale_fill_honey</a></span><span class="op">(</span>direction <span class="op">=</span> <span class="op">-</span><span class="fl">1</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="reference/theme_honeycomb.html">theme_honeycomb</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/coord_fixed.html" class="external-link">coord_equal</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+</div>
+</div>
+<div class="section level2">
+<h2 id="learn-more">Learn More<a class="anchor" aria-label="anchor" href="#learn-more"></a>
+</h2>
+<p>Full documentation and rendered examples live at <a href="https://dleopold.github.io/gghoneycomb/" class="uri">https://dleopold.github.io/gghoneycomb/</a>.</p>
+<p>The Getting Started vignette walks through silhouette shapes, layout modes, cell count selection, and proportions input in detail:</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/vignette.html" class="external-link">vignette</a></span><span class="op">(</span><span class="st">"gghoneycomb"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="development-workflow-renv">Development Workflow (renv)<a class="anchor" aria-label="anchor" href="#development-workflow-renv"></a>
@@ -73,14 +203,14 @@
 <div class="section level3">
 <h3 id="setup">Setup<a class="anchor" aria-label="anchor" href="#setup"></a>
 </h3>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Activate renv and install dependencies</span></span>
 <span><span class="fu">renv</span><span class="fu">::</span><span class="fu"><a href="https://rstudio.github.io/renv/reference/restore.html" class="external-link">restore</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="adding-dependencies">Adding Dependencies<a class="anchor" aria-label="anchor" href="#adding-dependencies"></a>
 </h3>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Add a runtime dependency</span></span>
 <span><span class="fu">usethis</span><span class="fu">::</span><span class="fu">use_package</span><span class="op">(</span><span class="st">"newpkg"</span><span class="op">)</span></span>
 <span></span>
@@ -93,7 +223,7 @@
 <div class="section level3">
 <h3 id="keeping-in-sync">Keeping in Sync<a class="anchor" aria-label="anchor" href="#keeping-in-sync"></a>
 </h3>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Check status</span></span>
 <span><span class="fu">renv</span><span class="fu">::</span><span class="fu"><a href="https://rstudio.github.io/renv/reference/status.html" class="external-link">status</a></span><span class="op">(</span><span class="op">)</span></span>
 <span></span>
