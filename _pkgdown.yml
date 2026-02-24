@@ -2,3 +2,35 @@ url: https://dleopold.github.io/gghoneycomb/
 template:
   bootstrap: 5
 
+articles:
+  - title: "Getting Started"
+    navbar: ~
+    contents:
+      - gghoneycomb
+
+reference:
+  - title: "Honeycomb plots"
+    desc: >
+      The main layer functions for drawing honeycomb waffle charts.
+      `geom_honeycomb()` is the primary entry point; `stat_honeycomb()`
+      is available for advanced use with custom geoms.
+    contents:
+      - geom_honeycomb
+      - stat_honeycomb
+
+  - title: "Scales and themes"
+    desc: >
+      Honey-inspired discrete color scales and a minimal ggplot2 theme
+      designed to complement honeycomb plots.
+    contents:
+      - scale_honey
+      - honey_pal
+      - theme_honeycomb
+
+  - title: "Hex grid utilities"
+    desc: >
+      Internal helpers for hex grid geometry and compactness scoring.
+      Documented for reference; not exported.
+    contents:
+      - hex-geometry
+      - hex-compactness

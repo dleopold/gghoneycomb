@@ -6,7 +6,7 @@
 \alias{gghoneycomb-package}
 \title{gghoneycomb: Honeycomb Plots for ggplot2}
 \description{
-Provides geoms and stats for creating honeycomb-style hexagonal grid visualizations as an extension to ggplot2. Enables the display of categorical or continuous data in a compact, visually appealing hexagonal layout.
+A ggplot2 extension for honeycomb waffle charts where each category forms a contiguous region of hexagonal cells. Supports rectangular, rounded, and organic silhouette shapes; compact and free (temperature-controlled) layout modes; 90-degree rotation; and a honey-inspired color palette.
 }
 \seealso{
 Useful links:

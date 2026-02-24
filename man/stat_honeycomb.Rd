@@ -16,12 +16,16 @@ stat_honeycomb(
   inherit.aes = TRUE,
   values_are = c("auto", "counts", "proportions"),
   n_cells = NULL,
-  compaction = 1,
+  silhouette = c("rect", "rounded", "organic"),
+  layout = c("compact", "free"),
+  compact_style = c("perimeter", "blocky"),
+  temperature = NULL,
   min_width = NULL,
   max_width = NULL,
   min_height = NULL,
   max_height = NULL,
   seed = NULL,
+  rotation = 0,
   ...
 )
 }
@@ -57,12 +61,31 @@ treat as proportions; otherwise treat as counts.
 automatically chosen based on the number of categories and minimum
 proportion. Maximum allowed is 2500.}
 
-\item{compaction}{Controls the regularity of the honeycomb boundary:
+\item{silhouette}{Shape of the overall honeycomb boundary.
+Accepted values: \code{"rect"} (default), \code{"rounded"}, \code{"organic"}.
+All three silhouettes produce a connected mask of the requested size.
+\code{"rounded"} softens the corners of a rectangular grid; \code{"organic"}
+grows an irregular boundary from a central seed.}
+
+\item{layout}{Region allocation strategy.
+Accepted values: \code{"compact"} (default), \code{"free"}.
+\code{"compact"} assigns cells deterministically (\code{temperature} must be 0);
+\code{"free"} uses stochastic top-K sampling controlled by \code{temperature}.}
+
+\item{compact_style}{Style of region packing when \code{layout = "compact"}.
+Accepted values: \code{"perimeter"} (default), \code{"blocky"}.
+\code{"perimeter"} minimises region perimeter via greedy growth with a
+carve fallback; \code{"blocky"} uses directional face-carving.
+\code{"blocky"} requires \code{silhouette = "rect"}.}
+
+\item{temperature}{Controls randomness in region allocation. A single
+non-negative number:
 \describe{
-\item{\code{1}}{(Default) Rectangular bounding grid.}
-\item{\verb{< 1}}{Increasingly irregular silhouette via boundary erosion.}
-}
-Must be in the range (0, 1].}
+\item{\code{NULL}}{(Default) Automatically set: 0 for \code{layout = "compact"},
+0.35 for \code{layout = "free"}.}
+\item{\code{0}}{Deterministic allocation. Required when \code{layout = "compact"}.}
+\item{\verb{> 0}}{Increasing randomness. Only valid with \code{layout = "free"}.}
+}}
 
 \item{min_width, max_width}{Constraints on grid width (number of columns).
 Default \code{NULL} means no constraint.}
@@ -70,10 +93,15 @@ Default \code{NULL} means no constraint.}
 \item{min_height, max_height}{Constraints on grid height (number of rows).
 Default \code{NULL} means no constraint.}
 
-\item{seed}{Random seed for reproducible layouts when \code{compaction < 1}.
-If \code{NULL}, uses a random seed.}
+\item{seed}{Random seed for reproducible layouts. If \code{NULL}, uses a
+random seed.}
 
-\item{...}{Other arguments passed to the stat.}
+\item{rotation}{Rotation of the rendered honeycomb in degrees.
+Must be one of \code{0}, \code{90}, \code{180}, \code{270}. Rotation is applied to output
+coordinates only (grid allocation/contiguity are unchanged).}
+
+\item{...}{Other arguments passed to the stat. Passing the removed
+argument will raise an error with migration guidance.}
 }
 \value{
 A ggplot2 layer that can be added to a plot.
@@ -129,6 +157,26 @@ df_prop <- data.frame(
 
 ggplot(df_prop, aes(fill = category, weight = prop)) +
   stat_honeycomb(values_are = "proportions")
+
+# Free layout with high temperature and rotation
+ggplot(df, aes(fill = category, weight = count)) +
+  stat_honeycomb(
+    n_cells     = 100,
+    silhouette  = "organic",
+    layout      = "free",
+    temperature = 0.8,
+    rotation    = 90,
+    seed        = 7
+  )
+
+# Blocky compact style (requires silhouette = "rect")
+ggplot(df, aes(fill = category, weight = count)) +
+  stat_honeycomb(
+    n_cells       = 100,
+    silhouette    = "rect",
+    layout        = "compact",
+    compact_style = "blocky"
+  )
 }
 
 }
