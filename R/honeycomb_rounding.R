@@ -83,30 +83,31 @@ round_proportions <- function(proportions, n_cells, labels) {
     # Set these to 1
     targets[needs_one] <- 1L
 
-    # Subtract from largest targets (never reducing below 1)
-    # We need to subtract n_needs_one cells total from categories with target > 1
-    # Sort indices by target (descending), then by label (ascending) for tie-break
-    sorted_idx <- order(-targets, labels)
+    # If minimum enforcement caused us to exceed n_cells, subtract the overflow
+    # from the largest targets, never dropping below 1.
+    overflow <- sum(targets) - n_cells
+    if (overflow > 0) {
+      overflow <- as.integer(overflow)
+      sorted_idx <- order(-targets, labels)
 
-    # Subtract n_needs_one from the largest targets, skipping those with target == 1
-    subtracted <- 0
-    for (i in seq_along(sorted_idx)) {
-      if (subtracted >= n_needs_one) break
-      idx <- sorted_idx[i]
-      if (targets[idx] > 1) {
-        targets[idx] <- targets[idx] - 1L
-        subtracted <- subtracted + 1L
+      remaining <- overflow
+      for (idx in sorted_idx) {
+        if (remaining <= 0) break
+        cap <- targets[idx] - 1L
+        if (cap <= 0) next
+        take <- min(cap, remaining)
+        targets[idx] <- targets[idx] - take
+        remaining <- remaining - take
       }
-    }
 
-    # Check if we successfully subtracted enough
-    if (subtracted < n_needs_one) {
-      rlang::abort(
-        paste0(
-          "Cannot enforce minimum 1 for all nonzero categories; ",
-          "n_cells too small relative to number of categories"
+      if (remaining > 0) {
+        rlang::abort(
+          paste0(
+            "Cannot enforce minimum 1 for all nonzero categories; ",
+            "n_cells too small relative to number of categories"
+          )
         )
-      )
+      }
     }
   }
 

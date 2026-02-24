@@ -44,27 +44,387 @@
 #' @keywords internal
 #' @noRd
 allocate_regions <- function(grid, targets, global_center = NULL) {
-  tryCatch(
-    allocate_regions_center_out(grid, targets, global_center = global_center, order = "largest_first"),
-    error = function(e) {
-      msg <- conditionMessage(e)
-      if (grepl("Frontier exhausted", msg, fixed = TRUE)) {
-        tryCatch(
-          allocate_regions_center_out(grid, targets, global_center = global_center, order = "smallest_first"),
-          error = function(e2) {
-            msg2 <- conditionMessage(e2)
-            if (grepl("Frontier exhausted", msg2, fixed = TRUE)) {
-              allocate_regions_carve(grid, targets, global_center = global_center)
-            } else {
-              stop(e2)
-            }
+  allocation <- tryCatch(
+    allocate_regions_grow(grid, targets, global_center = global_center, temperature = 0),
+    error = function(grow_error) {
+      tryCatch(
+        allocate_regions_center_out(grid, targets, global_center = global_center, order = "largest_first"),
+        error = function(e) {
+          msg <- conditionMessage(e)
+          if (grepl("Frontier exhausted", msg, fixed = TRUE)) {
+            tryCatch(
+              allocate_regions_center_out(grid, targets, global_center = global_center, order = "smallest_first"),
+              error = function(e2) {
+                msg2 <- conditionMessage(e2)
+                if (grepl("Frontier exhausted", msg2, fixed = TRUE)) {
+                  allocate_regions_carve(grid, targets, global_center = global_center)
+                } else {
+                  stop(e2)
+                }
+              }
+            )
+          } else {
+            stop(e)
           }
-        )
-      } else {
-        stop(e)
-      }
+        }
+      )
     }
   )
+
+  # Final safety check: allocations must be contiguous.
+  if (!is.data.frame(allocation) || !all(c("col", "row", "category") %in% names(allocation))) {
+    rlang::abort("Internal error: allocation result has unexpected structure.")
+  }
+  if (any(is.na(allocation$category))) {
+    rlang::abort("Internal error: some cells were not assigned to a category.")
+  }
+  validate_contiguity(allocation)
+  allocation
+}
+
+
+# Compact perimeter-oriented multi-source region growth allocator.
+#
+# Strategy:
+# 1. Seed all categories up front (largest-first labels) using center +
+#    farthest-point sampling.
+# 2. Grow all regions simultaneously, always expanding the category most
+#    behind relative to its target size.
+# 3. Score frontier cells by perimeter gain, then distance to running
+#    region centroid.
+#
+# Retries up to five attempts with RNG-perturbed tie-breaks after the first
+# attempt. Falls back to carve allocator if all attempts fail.
+#
+# @keywords internal
+# @noRd
+allocate_regions_grow <- function(grid, targets, global_center = NULL, temperature = 0) {
+  if (!is.data.frame(grid) || !all(c("col", "row") %in% names(grid))) {
+    rlang::abort("`grid` must be a data.frame with columns `col` and `row`.")
+  }
+
+  if (!is.integer(targets) || is.null(names(targets))) {
+    rlang::abort("`targets` must be a named integer vector.")
+  }
+
+  if (sum(targets) != nrow(grid)) {
+    rlang::abort(
+      paste0(
+        "Sum of targets (", sum(targets), ") must equal number of grid cells (",
+        nrow(grid), ")."
+      )
+    )
+  }
+
+  if (any(targets < 0)) {
+    rlang::abort("All target counts must be non-negative.")
+  }
+
+  if (!is.numeric(temperature) || length(temperature) != 1L || is.na(temperature) || temperature < 0) {
+    rlang::abort("`temperature` must be a single non-negative number.")
+  }
+
+  n_cells <- nrow(grid)
+  if (n_cells == 0) {
+    return(data.frame(col = integer(0), row = integer(0), category = character(0)))
+  }
+
+  if (is.null(global_center)) {
+    global_center <- c(mean(grid$col), mean(grid$row))
+  }
+
+  category_order <- names(targets)[order(-targets, names(targets))]
+  active_categories <- category_order[targets[category_order] > 0L]
+
+  if (length(active_categories) == 0L) {
+    return(data.frame(col = grid$col, row = grid$row, category = NA_character_))
+  }
+
+  grid$idx <- seq_len(n_cells)
+
+  coord_to_idx <- new.env(hash = TRUE, parent = emptyenv())
+  for (i in seq_len(n_cells)) {
+    assign(paste(grid$col[i], grid$row[i], sep = ","), i, envir = coord_to_idx)
+  }
+
+  neighbors_by_idx <- vector("list", n_cells)
+  for (i in seq_len(n_cells)) {
+    offsets <- hex_neighbors(grid$col[i], grid$row[i])
+    n_idx <- integer(0)
+    for (j in seq_len(nrow(offsets))) {
+      n_col <- grid$col[i] + offsets$dcol[j]
+      n_row <- grid$row[i] + offsets$drow[j]
+      key <- paste(n_col, n_row, sep = ",")
+      if (exists(key, envir = coord_to_idx)) {
+        n_idx <- c(n_idx, get(key, envir = coord_to_idx))
+      }
+    }
+    neighbors_by_idx[[i]] <- n_idx
+  }
+
+  draw_attempt_jitter <- function(n, attempt_id) {
+    if (n <= 0L || attempt_id <= 1L) {
+      return(rep(0, n))
+    }
+
+    seed_base <- sum((grid$col + 1009) * 31 + (grid$row + 10007) * 17) +
+      sum(as.numeric(targets) * seq_along(targets) * 13)
+    seed <- as.integer((seed_base + attempt_id * 7919) %% 2147483647)
+    if (seed <= 0L) {
+      seed <- attempt_id + 1L
+    }
+
+    has_seed <- exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
+    if (has_seed) {
+      old_seed <- get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
+    }
+
+    on.exit({
+      if (has_seed) {
+        assign(".Random.seed", old_seed, envir = .GlobalEnv)
+      } else if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
+        rm(".Random.seed", envir = .GlobalEnv)
+      }
+    }, add = TRUE)
+
+    set.seed(seed)
+    stats::runif(n)
+  }
+
+  run_attempt <- function(attempt_id) {
+    cell_jitter <- draw_attempt_jitter(n_cells, attempt_id)
+    cat_jitter <- draw_attempt_jitter(length(active_categories), attempt_id + 100L)
+    names(cat_jitter) <- active_categories
+    restart_scale <- if (attempt_id == 1L) 0 else 0.25
+
+    seeded_categories <- active_categories
+    seed_idx <- integer(length(seeded_categories))
+    names(seed_idx) <- seeded_categories
+
+    # Seed 1: closest to center (global center or grid centroid).
+    center_dist2 <- (grid$col - global_center[1])^2 + (grid$row - global_center[2])^2
+    center_score <- center_dist2 + restart_scale * cell_jitter
+    ord <- order(center_score, grid$row, grid$col)
+    seed_idx[seeded_categories[1]] <- ord[1]
+
+    # Remaining seeds: farthest-point sampling (maximize min dist2 to existing seeds).
+    if (length(seeded_categories) > 1L) {
+      for (k in 2:length(seeded_categories)) {
+        used <- seed_idx[seed_idx > 0L]
+        candidates <- setdiff(seq_len(n_cells), used)
+        if (length(candidates) == 0L) {
+          rlang::abort("Failed to place enough seeds for all categories.")
+        }
+
+        min_dist2 <- rep(Inf, length(candidates))
+        for (j in seq_along(candidates)) {
+          idx <- candidates[j]
+          d2 <- (grid$col[idx] - grid$col[used])^2 + (grid$row[idx] - grid$row[used])^2
+          min_dist2[j] <- min(d2)
+        }
+
+        min_dist_score <- min_dist2 + restart_scale * cell_jitter[candidates]
+        cand_ord <- order(-min_dist_score, grid$row[candidates], grid$col[candidates])
+
+        seed_idx[seeded_categories[k]] <- candidates[cand_ord[1]]
+      }
+    }
+
+    assigned <- rep(NA_character_, n_cells)
+    region_cells <- stats::setNames(vector("list", length(seeded_categories)), seeded_categories)
+    region_size <- stats::setNames(integer(length(seeded_categories)), seeded_categories)
+    sum_col <- stats::setNames(numeric(length(seeded_categories)), seeded_categories)
+    sum_row <- stats::setNames(numeric(length(seeded_categories)), seeded_categories)
+
+    for (cat in seeded_categories) {
+      idx <- seed_idx[cat]
+      assigned[idx] <- cat
+      region_cells[[cat]] <- idx
+      region_size[cat] <- 1L
+      sum_col[cat] <- grid$col[idx]
+      sum_row[cat] <- grid$row[idx]
+    }
+
+    total_to_add <- sum(targets[seeded_categories]) - length(seeded_categories)
+    if (total_to_add < 0L) {
+      rlang::abort("Internal error: seed count exceeds targets.")
+    }
+
+    if (total_to_add > 0L) {
+      for (step in seq_len(total_to_add)) {
+        remaining <- targets[seeded_categories] - region_size[seeded_categories]
+        needing <- seeded_categories[remaining > 0L]
+
+        if (length(needing) == 0L) {
+          break
+        }
+
+        fill_ratio <- region_size[needing] / targets[needing]
+        ratio_score <- fill_ratio + (restart_scale * 0.02) * cat_jitter[needing]
+        cat_ord <- order(ratio_score, -remaining[needing], needing)
+        cat <- needing[cat_ord[1]]
+
+        frontier_flag <- rep(FALSE, n_cells)
+        cat_region <- region_cells[[cat]]
+        for (idx in cat_region) {
+          n_idx <- neighbors_by_idx[[idx]]
+          if (length(n_idx) > 0L) {
+            free_neighbors <- n_idx[is.na(assigned[n_idx])]
+            if (length(free_neighbors) > 0L) {
+              frontier_flag[free_neighbors] <- TRUE
+            }
+          }
+        }
+        frontier <- which(frontier_flag)
+
+        if (length(frontier) == 0L) {
+          rlang::abort(
+            paste0(
+              "Frontier exhausted for category '", cat, "' in compact growth attempt ", attempt_id,
+              "."
+            )
+          )
+        }
+
+        centroid_col <- sum_col[cat] / region_size[cat]
+        centroid_row <- sum_row[cat] / region_size[cat]
+
+        delta_perimeter <- integer(length(frontier))
+        centroid_dist2 <- numeric(length(frontier))
+
+        for (j in seq_along(frontier)) {
+          idx <- frontier[j]
+          n_idx <- neighbors_by_idx[[idx]]
+          n_touch <- 0L
+          if (length(n_idx) > 0L) {
+            n_touch <- sum(!is.na(assigned[n_idx]) & assigned[n_idx] == cat)
+          }
+          delta_perimeter[j] <- 6L - 2L * n_touch
+          centroid_dist2[j] <-
+            (grid$col[idx] - centroid_col)^2 +
+            (grid$row[idx] - centroid_row)^2
+        }
+
+        dist_score <- centroid_dist2 + restart_scale * cell_jitter[frontier]
+
+        irregularity <- if (temperature <= 0.35) {
+          0
+        } else {
+          min(1, (temperature - 0.35) / 0.65)
+        }
+
+        if (irregularity > 0) {
+          max_delta <- max(delta_perimeter)
+          max_dist <- max(dist_score)
+          mixed_delta <- (1 - irregularity) * delta_perimeter +
+            irregularity * (max_delta - delta_perimeter)
+          mixed_dist <- (1 - irregularity) * dist_score +
+            irregularity * (max_dist - dist_score)
+          cand_ord <- order(mixed_delta, mixed_dist, grid$row[frontier], grid$col[frontier])
+        } else {
+          cand_ord <- order(delta_perimeter, dist_score, grid$row[frontier], grid$col[frontier])
+        }
+
+        chosen_idx <- NA_integer_
+        if (temperature == 0) {
+          chosen_idx <- frontier[cand_ord[1]]
+        } else {
+          if (temperature <= 0.35) {
+            top_k <- min(12L, length(frontier))
+          } else {
+            frac <- min(1, temperature)
+            top_k <- min(length(frontier), max(12L, ceiling(frac * length(frontier))))
+          }
+          top <- cand_ord[seq_len(top_k)]
+          rank <- seq_len(top_k)
+          temp_scale <- if (temperature <= 0.35) temperature else temperature * 2
+          weights <- exp(-rank / temp_scale)
+          if (!all(is.finite(weights)) || sum(weights) <= 0) {
+            weights <- rep(1, top_k)
+          }
+          chosen_pos <- sample(top, size = 1L, prob = weights)
+          chosen_idx <- frontier[chosen_pos]
+        }
+
+        assigned[chosen_idx] <- cat
+        region_cells[[cat]] <- c(region_cells[[cat]], chosen_idx)
+        region_size[cat] <- region_size[cat] + 1L
+        sum_col[cat] <- sum_col[cat] + grid$col[chosen_idx]
+        sum_row[cat] <- sum_row[cat] + grid$row[chosen_idx]
+      }
+    }
+
+    final_remaining <- targets[seeded_categories] - region_size[seeded_categories]
+    if (any(final_remaining != 0L)) {
+      rlang::abort("Compact growth stopped before satisfying all targets.")
+    }
+    if (any(is.na(assigned))) {
+      rlang::abort("Internal error: compact growth left unassigned cells.")
+    }
+
+    allocation <- data.frame(
+      col = grid$col,
+      row = grid$row,
+      category = assigned,
+      stringsAsFactors = FALSE
+    )
+
+    validate_contiguity(allocation)
+    allocation
+  }
+
+  max_attempts <- 5L
+  last_error <- NULL
+  best_allocation <- NULL
+  best_total_perimeter <- Inf
+
+  for (attempt_id in seq_len(max_attempts)) {
+    allocation <- tryCatch(
+      run_attempt(attempt_id),
+      error = function(e) e
+    )
+
+    if (inherits(allocation, "error")) {
+      last_error <- allocation
+      next
+    }
+
+    total_perimeter <- sum(vapply(
+      active_categories,
+      function(cat) hex_region_perimeter(allocation, cat),
+      numeric(1)
+    ))
+
+    if (is.null(best_allocation) || total_perimeter < best_total_perimeter) {
+      best_allocation <- allocation
+      best_total_perimeter <- total_perimeter
+    }
+  }
+
+  if (!is.null(best_allocation)) {
+    return(best_allocation)
+  }
+
+  carve_allocation <- tryCatch(
+    allocate_regions_carve(grid[, c("col", "row")], targets, global_center = global_center),
+    error = function(e) e
+  )
+
+  if (!inherits(carve_allocation, "error")) {
+    return(carve_allocation)
+  }
+
+  if (inherits(last_error, "error")) {
+    rlang::abort(
+      paste0(
+        "Compact growth allocator failed after ", max_attempts,
+        " attempts (", conditionMessage(last_error), "); carve fallback failed: ",
+        conditionMessage(carve_allocation)
+      )
+    )
+  }
+
+  stop(carve_allocation)
 }
 
 
@@ -504,6 +864,236 @@ allocate_regions_carve <- function(grid, targets, global_center = NULL) {
     category = assigned,
     stringsAsFactors = FALSE
   )
+}
+
+
+# Directional carve allocator for compact/blocky rectangular layouts.
+#
+# Strategy: repeatedly carve cells from one face of the remaining free pool,
+# preserving connectivity of the leftover pool after every removal.
+#
+# @keywords internal
+# @noRd
+allocate_regions_blocky <- function(grid, targets, global_center = NULL) {
+  if (!is.data.frame(grid) || !all(c("col", "row") %in% names(grid))) {
+    rlang::abort("`grid` must be a data.frame with columns `col` and `row`.")
+  }
+  if (!is.integer(targets) || is.null(names(targets))) {
+    rlang::abort("`targets` must be a named integer vector.")
+  }
+  if (sum(targets) != nrow(grid)) {
+    rlang::abort(
+      paste0(
+        "Sum of targets (", sum(targets), ") must equal number of grid cells (",
+        nrow(grid), ")."
+      )
+    )
+  }
+  if (any(targets < 0)) {
+    rlang::abort("All target counts must be non-negative.")
+  }
+
+  n_cells <- nrow(grid)
+  if (n_cells == 0) {
+    return(data.frame(col = integer(0), row = integer(0), category = character(0)))
+  }
+
+  if (is.null(global_center)) {
+    global_center <- c(mean(grid$col), mean(grid$row))
+  }
+
+  grid$idx <- seq_len(n_cells)
+
+  coord_to_idx <- new.env(hash = TRUE, parent = emptyenv())
+  for (i in seq_len(n_cells)) {
+    assign(paste(grid$col[i], grid$row[i], sep = ","), i, envir = coord_to_idx)
+  }
+
+  neighbors_by_idx <- vector("list", n_cells)
+  for (i in seq_len(n_cells)) {
+    offsets <- hex_neighbors(grid$col[i], grid$row[i])
+    n_idx <- integer(0)
+    for (j in seq_len(nrow(offsets))) {
+      n_col <- grid$col[i] + offsets$dcol[j]
+      n_row <- grid$row[i] + offsets$drow[j]
+      key <- paste(n_col, n_row, sep = ",")
+      if (exists(key, envir = coord_to_idx)) {
+        n_idx <- c(n_idx, get(key, envir = coord_to_idx))
+      }
+    }
+    neighbors_by_idx[[i]] <- n_idx
+  }
+
+  is_connected_free <- function(free_mask) {
+    n_free <- sum(free_mask)
+    if (n_free <= 1L) {
+      return(TRUE)
+    }
+
+    start <- which(free_mask)[1]
+    visited <- rep(FALSE, length(free_mask))
+    queue <- start
+    visited[start] <- TRUE
+    head <- 1L
+
+    while (head <= length(queue)) {
+      idx <- queue[head]
+      head <- head + 1L
+
+      n_idx <- neighbors_by_idx[[idx]]
+      if (length(n_idx) == 0L) {
+        next
+      }
+
+      for (next_idx in n_idx) {
+        if (free_mask[next_idx] && !visited[next_idx]) {
+          visited[next_idx] <- TRUE
+          queue <- c(queue, next_idx)
+        }
+      }
+    }
+
+    sum(visited & free_mask) == n_free
+  }
+
+  free_neighbor_count <- function(idx, free_mask) {
+    n_idx <- neighbors_by_idx[[idx]]
+    if (length(n_idx) == 0L) {
+      return(0L)
+    }
+    sum(free_mask[n_idx])
+  }
+
+  perimeter_indices <- function(free_mask) {
+    idxs <- which(free_mask)
+    if (length(idxs) == 0L) {
+      return(integer(0))
+    }
+
+    keep <- logical(length(idxs))
+    for (k in seq_along(idxs)) {
+      keep[k] <- free_neighbor_count(idxs[k], free_mask) < 6L
+    }
+    idxs[keep]
+  }
+
+  touches_region <- function(idx, region_mask) {
+    n_idx <- neighbors_by_idx[[idx]]
+    if (length(n_idx) == 0L) {
+      return(FALSE)
+    }
+    any(region_mask[n_idx])
+  }
+
+  col_span <- max(grid$col) - min(grid$col)
+  row_span <- max(grid$row) - min(grid$row)
+  slice_vertical <- col_span >= row_span
+
+  category_order <- names(targets)[order(-targets, names(targets))]
+  active_categories <- category_order[targets[category_order] > 0L]
+
+  if (length(active_categories) == 0L) {
+    return(data.frame(col = grid$col, row = grid$row, category = NA_character_))
+  }
+
+  carve_categories <- active_categories[-length(active_categories)]
+  last_category <- active_categories[length(active_categories)]
+
+  assigned <- rep(NA_character_, n_cells)
+  free_mask <- rep(TRUE, n_cells)
+
+  for (cat in carve_categories) {
+    target_count <- targets[cat]
+    if (target_count == 0L) {
+      next
+    }
+
+    region <- integer(0)
+    region_mask <- rep(FALSE, n_cells)
+
+    while (length(region) < target_count) {
+      perim <- perimeter_indices(free_mask)
+      if (length(perim) == 0L) {
+        rlang::abort(
+          paste0("No perimeter cells available while carving category '", cat, "'.")
+        )
+      }
+
+      if (length(region) == 0L) {
+        candidates <- perim
+      } else {
+        touches <- logical(length(perim))
+        for (k in seq_along(perim)) {
+          touches[k] <- touches_region(perim[k], region_mask)
+        }
+        candidates <- perim[touches]
+      }
+
+      if (length(candidates) == 0L) {
+        rlang::abort(
+          paste0(
+            "Cannot grow blocky region for category '", cat, "' while preserving contiguity."
+          )
+        )
+      }
+
+      extreme_coord <- if (slice_vertical) grid$col[candidates] else grid$row[candidates]
+      ord <- order(extreme_coord, grid$row[candidates], grid$col[candidates])
+
+      accepted <- FALSE
+      for (pos in ord) {
+        idx <- candidates[pos]
+
+        free_mask[idx] <- FALSE
+        if (is_connected_free(free_mask)) {
+          region <- c(region, idx)
+          region_mask[idx] <- TRUE
+          accepted <- TRUE
+          break
+        }
+        free_mask[idx] <- TRUE
+      }
+
+      if (!accepted) {
+        rlang::abort(
+          paste0(
+            "Cannot carve category '", cat, "' to size ", target_count,
+            " while keeping the remaining pool connected."
+          )
+        )
+      }
+    }
+
+    assigned[region] <- cat
+  }
+
+  assigned[free_mask] <- last_category
+
+  if (any(is.na(assigned))) {
+    rlang::abort("Internal error: some cells were not assigned to a category.")
+  }
+
+  allocation <- data.frame(
+    col = grid$col,
+    row = grid$row,
+    category = assigned,
+    stringsAsFactors = FALSE
+  )
+
+  for (cat in names(targets)) {
+    actual_count <- sum(allocation$category == cat)
+    if (actual_count != targets[cat]) {
+      rlang::abort(
+        paste0(
+          "Internal error: category '", cat, "' has ", actual_count,
+          " cells but expected ", targets[cat], "."
+        )
+      )
+    }
+  }
+
+  validate_contiguity(allocation)
+  allocation
 }
 
 

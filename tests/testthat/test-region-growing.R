@@ -47,6 +47,18 @@ test_that("allocate_regions produces contiguous regions", {
   expect_equal(gghoneycomb:::count_components(result, "C"), 1L)
 })
 
+test_that("allocate_regions keeps compactness ratio reasonable", {
+  grid <- make_grid(9, 9)
+  targets <- c(A = 45L, B = 16L, C = 20L)
+
+  result <- gghoneycomb:::allocate_regions(grid, targets)
+
+  for (cat in names(targets)) {
+    ratio <- gghoneycomb:::hex_region_compactness_ratio(result, cat)
+    expect_true(ratio <= 2.0, info = paste("Category", cat, "ratio:", ratio))
+  }
+})
+
 test_that("allocate_regions handles single category", {
   grid <- make_grid(5, 5)
   targets <- c(X = 25L)
@@ -208,6 +220,36 @@ test_that("allocate_regions errors when contiguity impossible", {
     gghoneycomb:::allocate_regions(grid, targets),
     "Cannot grow region"
   )
+})
+
+# ============================================================================
+# allocate_regions_blocky() tests
+# ============================================================================
+
+test_that("allocate_regions_blocky allocates contiguous regions with exact counts", {
+  grid <- make_grid(10, 10)
+  targets <- c(A = 50L, B = 25L, C = 25L)
+
+  result <- gghoneycomb:::allocate_regions_blocky(grid, targets)
+
+  counts <- table(result$category)
+  expect_equal(as.integer(counts["A"]), 50L)
+  expect_equal(as.integer(counts["B"]), 25L)
+  expect_equal(as.integer(counts["C"]), 25L)
+
+  expect_equal(gghoneycomb:::count_components(result, "A"), 1L)
+  expect_equal(gghoneycomb:::count_components(result, "B"), 1L)
+  expect_equal(gghoneycomb:::count_components(result, "C"), 1L)
+})
+
+test_that("allocate_regions_blocky is deterministic", {
+  grid <- make_grid(10, 10)
+  targets <- c(A = 50L, B = 25L, C = 25L)
+
+  result1 <- gghoneycomb:::allocate_regions_blocky(grid, targets)
+  result2 <- gghoneycomb:::allocate_regions_blocky(grid, targets)
+
+  expect_equal(result1, result2)
 })
 
 # ============================================================================
@@ -419,4 +461,68 @@ test_that("allocation on 12x12 grid with equal split", {
 
   expect_equal(gghoneycomb:::count_components(result, "A"), 1L)
   expect_equal(gghoneycomb:::count_components(result, "B"), 1L)
+})
+
+test_that("allocate_regions_grow with temperature is reproducible under same seed", {
+  grid <- make_grid(11, 11)
+  targets <- c(A = 45L, B = 40L, C = 36L)
+
+  set.seed(123)
+  result1 <- gghoneycomb:::allocate_regions_grow(grid, targets, temperature = 0.35)
+  set.seed(123)
+  result2 <- gghoneycomb:::allocate_regions_grow(grid, targets, temperature = 0.35)
+
+  expect_equal(result1, result2)
+
+  counts1 <- table(result1$category)
+  counts2 <- table(result2$category)
+  expect_equal(as.integer(counts1[names(targets)]), as.integer(targets))
+  expect_equal(as.integer(counts2[names(targets)]), as.integer(targets))
+  expect_true(gghoneycomb:::validate_contiguity(result1))
+  expect_true(gghoneycomb:::validate_contiguity(result2))
+})
+
+test_that("allocate_regions_grow with temperature usually differs across seeds", {
+  grid <- make_grid(11, 11)
+  targets <- c(A = 45L, B = 40L, C = 36L)
+
+  set.seed(1)
+  result_seed_1 <- gghoneycomb:::allocate_regions_grow(grid, targets, temperature = 0.35)
+  set.seed(2)
+  result_seed_2 <- gghoneycomb:::allocate_regions_grow(grid, targets, temperature = 0.35)
+
+  expect_false(identical(result_seed_1, result_seed_2))
+
+  counts1 <- table(result_seed_1$category)
+  counts2 <- table(result_seed_2$category)
+  expect_equal(as.integer(counts1[names(targets)]), as.integer(targets))
+  expect_equal(as.integer(counts2[names(targets)]), as.integer(targets))
+  expect_true(gghoneycomb:::validate_contiguity(result_seed_1))
+  expect_true(gghoneycomb:::validate_contiguity(result_seed_2))
+})
+
+test_that("higher free-mode temperature yields less compact regions", {
+  grid <- make_grid(11, 11)
+  targets <- c(A = 45L, B = 40L, C = 36L)
+
+  set.seed(123)
+  low_temp <- gghoneycomb:::allocate_regions_grow(grid, targets, temperature = 0.35)
+  set.seed(123)
+  high_temp <- gghoneycomb:::allocate_regions_grow(grid, targets, temperature = 1.0)
+
+  expect_true(gghoneycomb:::validate_contiguity(low_temp))
+  expect_true(gghoneycomb:::validate_contiguity(high_temp))
+
+  low_ratio <- mean(vapply(
+    names(targets),
+    function(cat) gghoneycomb:::hex_region_compactness_ratio(low_temp, cat),
+    numeric(1)
+  ))
+  high_ratio <- mean(vapply(
+    names(targets),
+    function(cat) gghoneycomb:::hex_region_compactness_ratio(high_temp, cat),
+    numeric(1)
+  ))
+
+  expect_gt(high_ratio, low_ratio)
 })

@@ -47,19 +47,39 @@
 #' @param n_cells Number of hexagonal cells to use. If `NULL` (default),
 #'   automatically chosen based on the number of categories and minimum
 #'   proportion. Maximum allowed is 2500.
-#' @param compaction Controls the regularity of the honeycomb boundary:
+#' @param silhouette Shape of the overall honeycomb boundary.
+#'   Accepted values: `"rect"` (default), `"rounded"`, `"organic"`.
+#'   All three silhouettes produce a connected mask of the requested size.
+#'   `"rounded"` softens the corners of a rectangular grid; `"organic"`
+#'   grows an irregular boundary from a central seed.
+#' @param layout Region allocation strategy.
+#'   Accepted values: `"compact"` (default), `"free"`.
+#'   `"compact"` assigns cells deterministically (`temperature` must be 0);
+#'   `"free"` uses stochastic top-K sampling controlled by `temperature`.
+#' @param compact_style Style of region packing when `layout = "compact"`.
+#'   Accepted values: `"perimeter"` (default), `"blocky"`.
+#'   `"perimeter"` minimises region perimeter via greedy growth with a
+#'   carve fallback; `"blocky"` uses directional face-carving.
+#'   `"blocky"` requires `silhouette = "rect"`.
+#' @param temperature Controls randomness in region allocation. A single
+#'   non-negative number:
 #'   \describe{
-#'     \item{`1`}{(Default) Rectangular bounding grid.}
-#'     \item{`< 1`}{Increasingly irregular silhouette via boundary erosion.}
+#'     \item{`NULL`}{(Default) Automatically set: 0 for `layout = "compact"`,
+#'       0.35 for `layout = "free"`.}
+#'     \item{`0`}{Deterministic allocation. Required when `layout = "compact"`.}
+#'     \item{`> 0`}{Increasing randomness. Only valid with `layout = "free"`.}
 #'   }
-#'   Must be in the range (0, 1].
 #' @param min_width,max_width Constraints on grid width (number of columns).
 #'   Default `NULL` means no constraint.
 #' @param min_height,max_height Constraints on grid height (number of rows).
 #'   Default `NULL` means no constraint.
-#' @param seed Random seed for reproducible layouts when `compaction < 1`.
-#'   If `NULL`, uses a random seed.
-#' @param ... Other arguments passed to the stat.
+#' @param seed Random seed for reproducible layouts. If `NULL`, uses a
+#'   random seed.
+#' @param rotation Rotation of the rendered honeycomb in degrees.
+#'   Must be one of `0`, `90`, `180`, `270`. Rotation is applied to output
+#'   coordinates only (grid allocation/contiguity are unchanged).
+#' @param ... Other arguments passed to the stat. Passing the removed
+#'   argument will raise an error with migration guidance.
 #'
 #' @return A ggplot2 layer that can be added to a plot.
 #'
@@ -86,6 +106,26 @@
 #'
 #' ggplot(df_prop, aes(fill = category, weight = prop)) +
 #'   stat_honeycomb(values_are = "proportions")
+#'
+#' # Free layout with high temperature and rotation
+#' ggplot(df, aes(fill = category, weight = count)) +
+#'   stat_honeycomb(
+#'     n_cells     = 100,
+#'     silhouette  = "organic",
+#'     layout      = "free",
+#'     temperature = 0.8,
+#'     rotation    = 90,
+#'     seed        = 7
+#'   )
+#'
+#' # Blocky compact style (requires silhouette = "rect")
+#' ggplot(df, aes(fill = category, weight = count)) +
+#'   stat_honeycomb(
+#'     n_cells       = 100,
+#'     silhouette    = "rect",
+#'     layout        = "compact",
+#'     compact_style = "blocky"
+#'   )
 #' }
 #'
 #' @export
@@ -98,21 +138,66 @@ stat_honeycomb <- function(mapping = NULL,
                            inherit.aes = TRUE,
                            values_are = c("auto", "counts", "proportions"),
                            n_cells = NULL,
-                           compaction = 1,
+                           silhouette = c("rect", "rounded", "organic"),
+                           layout = c("compact", "free"),
+                           compact_style = c("perimeter", "blocky"),
+                           temperature = NULL,
                            min_width = NULL,
                            max_width = NULL,
                            min_height = NULL,
                            max_height = NULL,
                            seed = NULL,
+                           rotation = 0,
                            ...) {
   values_are <- match.arg(values_are)
+  silhouette <- match.arg(silhouette)
+  layout <- match.arg(layout)
+  compact_style <- match.arg(compact_style)
 
-  # Validate compaction
-  if (!is.numeric(compaction) || length(compaction) != 1 ||
-      compaction <= 0 || compaction > 1) {
-    rlang::abort(
-      "`compaction` must be a single number in the range (0, 1]."
-    )
+  # Legacy API detection: error with migration guidance
+  dots <- list(...)
+  legacy_arg_name <- paste0("comp", "action")
+  if (legacy_arg_name %in% names(dots)) {
+    legacy_word <- paste0("comp", "action")
+    rlang::abort(c(
+      paste0("The `", legacy_word, "` argument has been removed in favour of the v2 layout API."),
+      "i" = "Use the following migration guide:",
+      "*" = paste0("`", legacy_word, " = 1`\t-> `silhouette = \"rect\"`"),
+      "*" = paste0("`", legacy_word, " < 1`\t-> `silhouette = \"rounded\"` or `silhouette = \"organic\"`")
+    ))
+  }
+
+  # Validate temperature
+  if (!is.null(temperature)) {
+    if (!is.numeric(temperature) || length(temperature) != 1 ||
+        is.na(temperature) || temperature < 0) {
+      rlang::abort("`temperature` must be a single non-negative number.")
+    }
+  }
+
+  if (!is.numeric(rotation) || length(rotation) != 1 ||
+      is.na(rotation) || !(rotation %in% c(0, 90, 180, 270))) {
+    rlang::abort("`rotation` must be one of: 0, 90, 180, 270.")
+  }
+
+  # Apply temperature defaults: NULL -> 0 (compact) or 0.35 (free)
+  if (is.null(temperature)) {
+    temperature <- if (layout == "compact") 0 else 0.35
+  }
+
+  # Cross-parameter validation
+  if (layout == "compact" && temperature > 0) {
+    rlang::abort(c(
+      '`temperature` must be 0 when `layout` is "compact".',
+      "i" = 'Use `layout = "free"` for non-zero temperature.'
+    ))
+  }
+
+  if (compact_style == "blocky" && silhouette != "rect") {
+    rlang::abort(c(
+      '`compact_style = "blocky"` requires `silhouette = "rect"`.',
+      "i" = paste0('Current silhouette: "', silhouette, '".')
+    ))
   }
 
   # Validate n_cells if provided
@@ -142,12 +227,16 @@ stat_honeycomb <- function(mapping = NULL,
       na.rm = na.rm,
       values_are = values_are,
       n_cells = n_cells,
-      compaction = compaction,
+      silhouette = silhouette,
+      layout = layout,
+      compact_style = compact_style,
+      temperature = temperature,
       min_width = min_width,
       max_width = max_width,
       min_height = min_height,
       max_height = max_height,
       seed = seed,
+      rotation = as.integer(rotation),
       ...
     )
   )
@@ -180,10 +269,68 @@ StatHoneycomb <- ggplot2::ggproto("StatHoneycomb", ggplot2::Stat,
   },
 
   compute_panel = function(data, scales, values_are = "auto",
-                           n_cells = NULL, compaction = 1,
+                           n_cells = NULL,
+                           silhouette = "rect",
+                           layout = "compact",
+                           compact_style = "perimeter",
+                           temperature = 0,
                            min_width = NULL, max_width = NULL,
                            min_height = NULL, max_height = NULL,
-                           seed = NULL, na.rm = FALSE) {
+                           seed = NULL, rotation = 0,
+                           na.rm = FALSE) {
+    # ---- v2 parameter validation (defence-in-depth) ----
+    valid_silhouettes <- c("rect", "rounded", "organic")
+    if (!is.character(silhouette) || length(silhouette) != 1 ||
+        !silhouette %in% valid_silhouettes) {
+      rlang::abort(paste0(
+        "`silhouette` must be one of: ",
+        paste0('"', valid_silhouettes, '"', collapse = ", "), "."
+      ))
+    }
+
+    valid_layouts <- c("compact", "free")
+    if (!is.character(layout) || length(layout) != 1 ||
+        !layout %in% valid_layouts) {
+      rlang::abort(paste0(
+        "`layout` must be one of: ",
+        paste0('"', valid_layouts, '"', collapse = ", "), "."
+      ))
+    }
+
+    valid_compact_styles <- c("perimeter", "blocky")
+    if (!is.character(compact_style) || length(compact_style) != 1 ||
+        !compact_style %in% valid_compact_styles) {
+      rlang::abort(paste0(
+        "`compact_style` must be one of: ",
+        paste0('"', valid_compact_styles, '"', collapse = ", "), "."
+      ))
+    }
+
+    if (!is.numeric(temperature) || length(temperature) != 1 ||
+        is.na(temperature) ||
+        temperature < 0) {
+      rlang::abort("`temperature` must be a single non-negative number.")
+    }
+
+    if (!is.numeric(rotation) || length(rotation) != 1 ||
+        is.na(rotation) || !(rotation %in% c(0, 90, 180, 270))) {
+      rlang::abort("`rotation` must be one of: 0, 90, 180, 270.")
+    }
+
+    if (layout == "compact" && temperature > 0) {
+      rlang::abort(c(
+        '`temperature` must be 0 when `layout` is "compact".',
+        "i" = 'Use `layout = "free"` for non-zero temperature.'
+      ))
+    }
+
+    if (compact_style == "blocky" && silhouette != "rect") {
+      rlang::abort(c(
+        '`compact_style = "blocky"` requires `silhouette = "rect"`.',
+        "i" = paste0('Current silhouette: "', silhouette, '".')
+      ))
+    }
+
     # Validate weight is present
     if (!"weight" %in% names(data)) {
       rlang::abort(c(
@@ -251,7 +398,7 @@ StatHoneycomb <- ggplot2::ggproto("StatHoneycomb", ggplot2::Stat,
     targets <- as.integer(round_proportions(proportions, n_cells, labels))
     names(targets) <- labels
 
-    # Set seed for reproducibility (affects compaction mask)
+    # Set seed for reproducibility
     if (!is.null(seed)) {
       set.seed(as.integer(seed))
     }
@@ -262,10 +409,10 @@ StatHoneycomb <- ggplot2::ggproto("StatHoneycomb", ggplot2::Stat,
     min_height <- if (is.null(min_height)) 1L else min_height
     max_height <- max_height  # NULL is valid, handled by choose_grid_size
 
-    # Algorithm D: Generate compaction mask (or rectangular grid if compaction=1)
-    mask <- generate_compaction_mask(
+    # Algorithm D + C: Generate silhouette mask and allocate contiguous regions
+    mask <- generate_silhouette_mask(
       n_cells = n_cells,
-      compaction = compaction,
+      silhouette = silhouette,
       seed = NULL,  # seed already set above
       min_width = min_width,
       max_width = max_width,
@@ -273,27 +420,48 @@ StatHoneycomb <- ggplot2::ggproto("StatHoneycomb", ggplot2::Stat,
       max_height = max_height
     )
 
-    # Algorithm C: Allocate regions (contiguous by construction)
-    allocation <- allocate_regions(
-      grid = mask,
-      targets = targets,
-      global_center = NULL  # computed internally
-    )
-
-    # Algorithm B: Get grid dimensions for hex geometry
-    # Use the actual mask dimensions for center computation
-    grid_size <- choose_grid_size(
-      n_cells = n_cells,
-      min_width = min_width,
-      max_width = max_width,
-      min_height = min_height,
-      max_height = max_height
-    )
+    # Select allocator based on layout and compact_style
+    allocation <- tryCatch({
+      if (layout == "free") {
+        allocate_regions_grow(
+          grid = mask,
+          targets = targets,
+          global_center = NULL,
+          temperature = temperature
+        )
+      } else if (layout == "compact" && compact_style == "blocky") {
+        allocate_regions_blocky(
+          grid = mask,
+          targets = targets,
+          global_center = NULL
+        )
+      } else {
+        # compact + perimeter (default)
+        allocate_regions(
+          grid = mask,
+          targets = targets,
+          global_center = NULL
+        )
+      }
+    }, error = function(e) e)
+    if (inherits(allocation, "error")) {
+      rlang::abort(c(
+        "Failed to compute a contiguous honeycomb allocation.",
+        "x" = conditionMessage(allocation),
+        "i" = "Try adjusting `n_cells` or grid constraints.",
+        "i" = "If you set `seed`, try a different seed to explore other layouts."
+      ))
+    }
 
     # Algorithm E: Generate hex centers and vertices
-    # Use radius = 1 for unit hexagons (can be scaled by coord_equal)
+    #
+    # IMPORTANT: Rounded/organic silhouettes are grown from a candidate grid
+    # that can be larger than n_cells. Always size the centers grid to cover
+    # mask extents to avoid NA (x, y) after merging.
     r <- 1
-    centers <- hex_grid_centers(grid_size$width, grid_size$height, r)
+    grid_width <- max(mask$col) + 1L
+    grid_height <- max(mask$row) + 1L
+    centers <- hex_grid_centers(grid_width, grid_height, r)
 
     # Merge allocation with centers to get (col, row, category, x, y)
     # allocation has: col, row, category
@@ -340,6 +508,21 @@ StatHoneycomb <- ggplot2::ggproto("StatHoneycomb", ggplot2::Stat,
       tooltip_label = result$tooltip_label,
       stringsAsFactors = FALSE
     )
+
+    if (rotation == 90) {
+      x_old <- result$x
+      y_old <- result$y
+      result$x <- -y_old
+      result$y <- x_old
+    } else if (rotation == 180) {
+      result$x <- -result$x
+      result$y <- -result$y
+    } else if (rotation == 270) {
+      x_old <- result$x
+      y_old <- result$y
+      result$x <- y_old
+      result$y <- -x_old
+    }
 
     result
   }

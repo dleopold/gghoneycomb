@@ -48,6 +48,18 @@ test_that("round_proportions: minimum 1 enforcement for nonzero categories", {
   expect_true(result[1] >= 98)
 })
 
+test_that("round_proportions: minimum enforcement can subtract repeatedly", {
+  # One dominant category and many tiny categories.
+  # With 20 cells and 10 nonzero categories, everyone must get >= 1.
+  props <- c(0.91, rep(0.01, 9))
+  labels <- c("A", paste0("B", 1:9))
+  result <- gghoneycomb:::round_proportions(props, 20, labels)
+
+  expect_equal(sum(result), 20)
+  expect_equal(result[1], 11)
+  expect_true(all(result[-1] == 1))
+})
+
 test_that("round_proportions: error when n_cells < nonzero categories", {
   # 3 nonzero categories but only 2 cells
   props <- c(0.5, 0.3, 0.2)

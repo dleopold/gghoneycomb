@@ -65,7 +65,8 @@
 #' @inheritParams stat_honeycomb
 #' @param stat The statistical transformation to use on the data.
 #'   Default is `"honeycomb"`.
-#' @param ... Other arguments passed to [ggplot2::layer()].
+#' @param ... Other arguments passed to [ggplot2::layer()]. Passing the
+#'   removed argument will raise an error with migration guidance.
 #'
 #' @return A ggplot2 layer that can be added to a plot.
 #'
@@ -100,9 +101,9 @@
 #'   geom_honeycomb(values_are = "proportions") +
 #'   coord_equal()
 #'
-#' # Control cell count and layout
+#' # Control cell count and silhouette
 #' ggplot(pollen_data, aes(fill = species, weight = count)) +
-#'   geom_honeycomb(n_cells = 50, compaction = 0.8, seed = 42) +
+#'   geom_honeycomb(n_cells = 50, silhouette = "rounded", layout = "free", seed = 42) +
 #'   coord_equal()
 #'
 #' # Optional tooltip usage with ggiraph
@@ -131,21 +132,66 @@ geom_honeycomb <- function(mapping = NULL,
                            inherit.aes = TRUE,
                            values_are = c("auto", "counts", "proportions"),
                            n_cells = NULL,
-                           compaction = 1,
+                           silhouette = c("rect", "rounded", "organic"),
+                           layout = c("compact", "free"),
+                           compact_style = c("perimeter", "blocky"),
+                           temperature = NULL,
                            min_width = NULL,
                            max_width = NULL,
                            min_height = NULL,
                            max_height = NULL,
                            seed = NULL,
+                           rotation = 0,
                            ...) {
   values_are <- match.arg(values_are)
+  silhouette <- match.arg(silhouette)
+  layout <- match.arg(layout)
+  compact_style <- match.arg(compact_style)
 
-  # Validate compaction
-  if (!is.numeric(compaction) || length(compaction) != 1 ||
-      compaction <= 0 || compaction > 1) {
-    rlang::abort(
-      "`compaction` must be a single number in the range (0, 1]."
-    )
+  # Legacy API detection: error with migration guidance
+  dots <- list(...)
+  legacy_arg_name <- paste0("comp", "action")
+  if (legacy_arg_name %in% names(dots)) {
+    legacy_word <- paste0("comp", "action")
+    rlang::abort(c(
+      paste0("The `", legacy_word, "` argument has been removed in favour of the v2 layout API."),
+      "i" = "Use the following migration guide:",
+      "*" = paste0("`", legacy_word, " = 1`\t-> `silhouette = \"rect\"`"),
+      "*" = paste0("`", legacy_word, " < 1`\t-> `silhouette = \"rounded\"` or `silhouette = \"organic\"`")
+    ))
+  }
+
+  # Validate temperature
+  if (!is.null(temperature)) {
+    if (!is.numeric(temperature) || length(temperature) != 1 ||
+        is.na(temperature) || temperature < 0) {
+      rlang::abort("`temperature` must be a single non-negative number.")
+    }
+  }
+
+  if (!is.numeric(rotation) || length(rotation) != 1 ||
+      is.na(rotation) || !(rotation %in% c(0, 90, 180, 270))) {
+    rlang::abort("`rotation` must be one of: 0, 90, 180, 270.")
+  }
+
+  # Apply temperature defaults: NULL -> 0 (compact) or 0.35 (free)
+  if (is.null(temperature)) {
+    temperature <- if (layout == "compact") 0 else 0.35
+  }
+
+  # Cross-parameter validation
+  if (layout == "compact" && temperature > 0) {
+    rlang::abort(c(
+      '`temperature` must be 0 when `layout` is "compact".',
+      "i" = 'Use `layout = "free"` for non-zero temperature.'
+    ))
+  }
+
+  if (compact_style == "blocky" && silhouette != "rect") {
+    rlang::abort(c(
+      '`compact_style = "blocky"` requires `silhouette = "rect"`.',
+      "i" = paste0('Current silhouette: "', silhouette, '".')
+    ))
   }
 
   # Validate n_cells if provided
@@ -175,12 +221,16 @@ geom_honeycomb <- function(mapping = NULL,
       na.rm = na.rm,
       values_are = values_are,
       n_cells = n_cells,
-      compaction = compaction,
+      silhouette = silhouette,
+      layout = layout,
+      compact_style = compact_style,
+      temperature = temperature,
       min_width = min_width,
       max_width = max_width,
       min_height = min_height,
       max_height = max_height,
       seed = seed,
+      rotation = as.integer(rotation),
       ...
     )
   )
