@@ -34,7 +34,7 @@ pollen <- data.frame(
 )
 
 ggplot(pollen, aes(fill = species, weight = count)) +
-  geom_honeycomb(n_cells = 80, compaction = 0.9, seed = 1) +
+  geom_honeycomb(n_cells = 80, silhouette = "rounded", layout = "free", seed = 1) +
   scale_fill_honey() +
   theme_honeycomb() +
   coord_equal()
@@ -49,7 +49,7 @@ increase detail but can make small regions harder to see.
 
 ```{r auto-ncells}
 ggplot(pollen, aes(fill = species, weight = count)) +
-  geom_honeycomb(compaction = 1) +
+  geom_honeycomb(silhouette = "rect") +
   scale_fill_honey() +
   theme_honeycomb() +
   coord_equal()
@@ -69,6 +69,88 @@ pollen_prop <- data.frame(
 ggplot(pollen_prop, aes(fill = species, weight = prop)) +
   geom_honeycomb(values_are = "proportions", n_cells = 80, seed = 1) +
   scale_fill_honey(direction = -1) +
+  theme_honeycomb() +
+  coord_equal()
+```
+
+## Controlling the silhouette
+
+The `silhouette` parameter controls the overall shape of the honeycomb:
+
+- `"rect"` (default): a clean rectangular grid.
+- `"rounded"`: softened corners for a more organic feel.
+- `"organic"`: irregular boundary grown from a central seed.
+
+Pair `silhouette` with `layout = "free"` and `temperature` to fine-tune
+the amount of jitter in the layout.
+
+```{r silhouette-demo}
+ggplot(pollen, aes(fill = species, weight = count)) +
+  geom_honeycomb(n_cells = 80, silhouette = "organic",
+                 layout = "free", temperature = 0.35, seed = 42) +
+  scale_fill_honey() +
+  theme_honeycomb() +
+  coord_equal()
+```
+
+
+## Blocky compact style
+
+`compact_style = "blocky"` carves rectangular blocks instead of minimizing
+perimeter. It requires `silhouette = "rect"` and produces a treemap-like
+appearance where each category occupies a roughly rectangular region.
+
+```{r blocky-compact}
+ggplot(pollen, aes(fill = species, weight = count)) +
+  geom_honeycomb(
+    n_cells       = 100,
+    silhouette    = "rect",
+    layout        = "compact",
+    compact_style = "blocky"
+  ) +
+  scale_fill_honey() +
+  theme_honeycomb() +
+  coord_equal()
+```
+
+## Rotation
+
+The `rotation` parameter rotates the rendered honeycomb in 90-degree
+increments (0, 90, 180, 270). Rotation is a coordinate transform applied
+after allocation, so the category regions and their contiguity are
+unchanged. Use it to switch between portrait and landscape orientations.
+
+```{r rotation}
+ggplot(pollen, aes(fill = species, weight = count)) +
+  geom_honeycomb(
+    n_cells    = 100,
+    silhouette = "rect",
+    rotation   = 90,
+    seed       = 1
+  ) +
+  scale_fill_honey() +
+  theme_honeycomb() +
+  coord_equal()
+```
+
+## High temperature
+
+In `layout = "free"` mode, `temperature` controls how loosely the
+allocator samples candidate cells. The default is 0.35. Higher values
+(e.g., 0.8) widen the frontier and invert scoring preferences, producing
+more irregular, less compact category regions. Per-category contiguity
+is still guaranteed regardless of temperature.
+
+```{r high-temperature}
+ggplot(pollen, aes(fill = species, weight = count)) +
+  geom_honeycomb(
+    n_cells     = 100,
+    silhouette  = "organic",
+    layout      = "free",
+    temperature = 0.8,
+    seed        = 7
+  ) +
+  scale_fill_honey() +
   theme_honeycomb() +
   coord_equal()
 ```
